@@ -133,21 +133,40 @@ tasks.post('/:id/reports', zValidator('json', reportInput), async (c) => {
   return c.json(report, 201);
 });
 
-// 遅延しているタスクを検出する (US-009)
-tasks.get('/delays', async (c) => {
+// 遅延しているタスクを検出する (US-009)。?projectId= で絞り込み可能。
+tasks.get('/delays', zValidator('query', listQuery), async (c) => {
+  const { projectId } = c.req.valid('query');
   const now = new Date();
-  const all = await prisma.task.findMany();
+  const all = await prisma.task.findMany({
+    where: projectId ? { projectId } : undefined,
+    include: { assignee: true },
+  });
+  const byId = new Map(all.map((t) => [t.id, t]));
   const results = all
     .map((t) => detectDelay(toPlanned(t), now))
-    .filter((r) => r.isDelayed);
+    .filter((r) => r.isDelayed)
+    .sort((a, b) => b.behindBy - a.behindBy)
+    .map((r) => {
+      const t = byId.get(r.taskId);
+      return { ...r, name: t?.name ?? '', assigneeName: t?.assignee?.name ?? null };
+    });
   return c.json(results);
 });
 
-// 遅れている要員を洗い出す (US-010)
-tasks.get('/delays/members', async (c) => {
+// 遅れている要員を洗い出す (US-010)。?projectId= で絞り込み可能。
+tasks.get('/delays/members', zValidator('query', listQuery), async (c) => {
+  const { projectId } = c.req.valid('query');
   const now = new Date();
-  const all = await prisma.task.findMany();
-  return c.json(delayedMembers(all.map(toPlanned), now));
+  const [all, members] = await Promise.all([
+    prisma.task.findMany({ where: projectId ? { projectId } : undefined }),
+    prisma.member.findMany(),
+  ]);
+  const memberName = new Map(members.map((m) => [m.id, m.name]));
+  const result = delayedMembers(all.map(toPlanned), now).map((m) => ({
+    ...m,
+    name: memberName.get(m.assigneeId) ?? '(不明)',
+  }));
+  return c.json(result);
 });
 
 function toPlanned(t: {

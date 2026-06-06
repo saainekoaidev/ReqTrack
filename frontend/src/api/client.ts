@@ -31,6 +31,16 @@ export interface Member {
   createdAt: string;
 }
 
+export interface DelayItem {
+  taskId: string;
+  name: string;
+  assigneeName: string | null;
+  expectedProgress: number;
+  actualProgress: number;
+  behindBy: number;
+  isDelayed: boolean;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -112,4 +122,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  // 遅延検出 (US-009)
+  getDelays: (projectId?: string) =>
+    request<DelayItem[]>(
+      `/api/tasks/delays${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
+    ),
 };
