@@ -179,6 +179,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.btn-danger {
+  background: transparent;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
 /* Gantt (US-004 / US-008) */
 .gantt-card {
   overflow-x: auto;

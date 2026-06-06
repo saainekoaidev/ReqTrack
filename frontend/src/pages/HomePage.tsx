@@ -6,6 +6,7 @@ const links: { to: string; title: string; desc: string }[] = [
   { to: '/tasks', title: 'タスク', desc: '要件から作業タスク・工程を洗い出す (US-002)' },
   { to: '/estimate', title: '見積', desc: 'タスクに工数(人日)を見積もる (US-003)' },
   { to: '/gantt', title: 'ガント', desc: '見積からガント初版を生成し可視化する (US-004)' },
+  { to: '/masters', title: 'マスタ', desc: '要員・祝日を登録する (US-005 / US-006)' },
 ];
 
 export default function HomePage() {
