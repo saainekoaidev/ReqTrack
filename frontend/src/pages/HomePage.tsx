@@ -8,6 +8,7 @@ const links: { to: string; title: string; desc: string }[] = [
   { to: '/gantt', title: 'ガント', desc: '見積からガント初版を生成し可視化する (US-004)' },
   { to: '/masters', title: 'マスタ', desc: '要員・祝日を登録する (US-005 / US-006)' },
   { to: '/reports', title: '進捗報告', desc: '要員がタスクの進捗を報告する (US-007)' },
+  { to: '/delays', title: '遅延', desc: '遅れの検出・遅れ要員・リカバリ案 (US-009〜011)' },
 ];
 
 export default function HomePage() {

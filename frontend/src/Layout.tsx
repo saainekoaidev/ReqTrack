@@ -10,6 +10,7 @@ const navItems: { to: string; label: string }[] = [
   { to: '/gantt', label: 'ガント' },
   { to: '/masters', label: 'マスタ' },
   { to: '/reports', label: '進捗報告' },
+  { to: '/delays', label: '遅延' },
 ];
 
 export default function Layout() {
