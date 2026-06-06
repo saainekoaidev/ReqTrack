@@ -110,8 +110,10 @@ tasks.post('/schedule', zValidator('json', scheduleInput), async (c) => {
     prisma.holiday.findMany(),
   ]);
   const holidays = new Set(holidayRows.map((h) => toDateKey(h.date)));
+  // 効率化調整(負)と工数0の集約行(機能/対象)はバー対象外
+  const schedulable = projectTasks.filter((t) => t.kind !== 'efficiency' && t.estimateDays > 0);
   const scheduled = scheduleTasks(
-    projectTasks.map((t) => ({
+    schedulable.map((t) => ({
       id: t.id,
       estimateDays: t.estimateDays,
       utilizationRate: t.utilizationRate,

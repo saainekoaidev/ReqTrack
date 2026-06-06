@@ -155,6 +155,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  // レビュー自動展開 / 効率化調整 (US-014)
+  expandReviews: (projectId: string) =>
+    request<Task[]>(`/api/projects/${projectId}/expand-reviews`, { method: 'POST' }),
+  addEfficiency: (projectId: string, input: { estimateDays: number; note?: string }) =>
+    request<Task>(`/api/projects/${projectId}/efficiency`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   // ガント初版生成 (US-004)
   generateSchedule: (projectId: string, startDate: string) =>
     request<Task[]>('/api/tasks/schedule', {

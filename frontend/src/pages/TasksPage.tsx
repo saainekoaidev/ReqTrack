@@ -65,6 +65,38 @@ export default function TasksPage() {
     }
   }
 
+  // レビュー自動展開 (US-014)
+  async function expandReviews() {
+    if (!projectId) return;
+    try {
+      await api.expandReviews(projectId);
+      reload();
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
+  // 効率化調整(負の工数)を追加 (US-014)
+  async function addEfficiency() {
+    if (!projectId) return;
+    const raw = window.prompt('効率化調整の工数(人日, 削減は負値。例: -1.0)');
+    if (raw == null) return;
+    const estimateDays = Number(raw);
+    if (Number.isNaN(estimateDays)) {
+      setError('数値を入力してください');
+      return;
+    }
+    const note = window.prompt('削減の根拠(任意)') ?? undefined;
+    try {
+      await api.addEfficiency(projectId, { estimateDays, note });
+      reload();
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     await addTask(name, requirementId || undefined);
@@ -122,7 +154,17 @@ export default function TasksPage() {
       </div>
 
       <div className="card">
-        <h3>WBS / タスク一覧</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3>WBS / タスク一覧</h3>
+          <span style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <button type="button" onClick={expandReviews} disabled={!projectId}>
+              レビューを自動展開
+            </button>
+            <button type="button" onClick={addEfficiency} disabled={!projectId}>
+              効率化調整を追加
+            </button>
+          </span>
+        </div>
         {tasks.length === 0 ? (
           <p className="muted">タスクがありません。</p>
         ) : (
@@ -141,6 +183,8 @@ export default function TasksPage() {
                   <td className="muted">{t.wbsId ?? '—'}</td>
                   <td style={{ paddingLeft: `calc(${(t.level ?? 3) - 1} * var(--space-3))` }}>
                     {t.level === 1 ? <strong>{t.name}</strong> : t.name}
+                    {t.kind === 'review' && <span className="badge badge-low"> レビュー</span>}
+                    {t.kind === 'efficiency' && <span className="badge badge-medium"> 効率化</span>}
                   </td>
                   <td>{t.phase ?? ''}</td>
                   <td>

@@ -109,4 +109,51 @@ describe('TasksPage', () => {
     expect(screen.getAllByText('基本設計').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('結合テスト').length).toBeGreaterThanOrEqual(1);
   });
+
+  it('「レビューを自動展開」でレビュータスクが表示される (US-014)', async () => {
+    let reviewed = false;
+    mockFetch((url, init) => {
+      if (url.includes('/api/projects/p1/expand-reviews') && init?.method === 'POST') {
+        reviewed = true;
+        return [];
+      }
+      if (url.includes('/api/projects')) return [project];
+      if (url.includes('/api/requirements')) return [requirement];
+      if (url.includes('/api/tasks')) {
+        return reviewed
+          ? [
+              {
+                id: 'rv1',
+                projectId: 'p1',
+                requirementId: 'r1',
+                name: '基本設計レビュー',
+                estimateDays: 0.6,
+                utilizationRate: 1,
+                plannedStart: null,
+                plannedEnd: null,
+                progress: 0,
+                assigneeId: null,
+                level: 3,
+                wbsId: '1r設',
+                parentId: 'f',
+                phase: '基本設計レビュー',
+                estimateNote: null,
+                kind: 'review',
+              },
+            ]
+          : [];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'レビューを自動展開' }));
+    await waitFor(() => expect(screen.getByText('1r設')).toBeInTheDocument());
+    expect(screen.getByText('レビュー')).toBeInTheDocument(); // バッジ
+  });
 });
