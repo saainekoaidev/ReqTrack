@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 const links: { to: string; title: string; desc: string }[] = [
   { to: '/requirements', title: '要件', desc: '顧客要件を受け取り登録する (US-001)' },
   { to: '/tasks', title: 'タスク', desc: '要件から作業タスク・工程を洗い出す (US-002)' },
+  { to: '/estimate', title: '見積', desc: 'タスクに工数(人日)を見積もる (US-003)' },
 ];
 
 export default function HomePage() {
