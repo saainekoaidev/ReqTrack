@@ -75,8 +75,11 @@ export const api = {
   createRequirement: (input: { projectId: string; content: string; source?: string }) =>
     request<Requirement>('/api/requirements', { method: 'POST', body: JSON.stringify(input) }),
 
-  // members
+  // members (US-005)
   listMembers: () => request<Member[]>('/api/members'),
+  createMember: (input: { name: string; role?: string; email?: string }) =>
+    request<Member>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
+  deleteMember: (id: string) => request<void>(`/api/members/${id}`, { method: 'DELETE' }),
 
   // tasks (US-002〜)
   listTasks: (projectId?: string) =>

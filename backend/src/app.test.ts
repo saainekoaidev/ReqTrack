@@ -31,6 +31,17 @@ describe('POST /api/members バリデーション', () => {
   });
 });
 
+describe('POST /api/members email バリデーション', () => {
+  it('email が不正形式だと 400', async () => {
+    const res = await app.request('/api/members', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '山田', email: 'not-an-email' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/holidays バリデーション', () => {
   it('date が不正形式だと 400', async () => {
     const res = await app.request('/api/holidays', {

@@ -8,6 +8,7 @@ const navItems: { to: string; label: string }[] = [
   { to: '/tasks', label: 'タスク' },
   { to: '/estimate', label: '見積' },
   { to: '/gantt', label: 'ガント' },
+  { to: '/masters', label: 'マスタ' },
 ];
 
 export default function Layout() {
