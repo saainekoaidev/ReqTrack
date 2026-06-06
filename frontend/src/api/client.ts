@@ -163,6 +163,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  // 見積 Excel(.xlsx) のダウンロード URL (US-016)
+  estimateXlsxUrl: (projectId: string) =>
+    `${BASE}/api/projects/${projectId}/estimate.xlsx`,
   // ガント初版生成 (US-004)
   generateSchedule: (projectId: string, startDate: string) =>
     request<Task[]>('/api/tasks/schedule', {

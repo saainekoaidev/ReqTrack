@@ -82,6 +82,11 @@ export default function GanttPage() {
           <button type="button" onClick={generate} disabled={!projectId}>
             ガント初版を生成
           </button>
+          {projectId && (
+            <a className="btn-link" href={api.estimateXlsxUrl(projectId)}>
+              見積Excelをダウンロード
+            </a>
+          )}
         </div>
         <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
           見積(人日)をもとに、土日・祝日を除いた稼働日でタスクを直列に割り付けます。
