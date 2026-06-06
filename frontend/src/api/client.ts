@@ -17,6 +17,12 @@ export interface Requirement {
   createdAt: string;
 }
 
+export interface Holiday {
+  id: string;
+  date: string;
+  name: string;
+}
+
 export interface Member {
   id: string;
   name: string;
@@ -80,6 +86,12 @@ export const api = {
   createMember: (input: { name: string; role?: string; email?: string }) =>
     request<Member>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
   deleteMember: (id: string) => request<void>(`/api/members/${id}`, { method: 'DELETE' }),
+
+  // holidays (US-006)
+  listHolidays: () => request<Holiday[]>('/api/holidays'),
+  createHoliday: (input: { date: string; name: string }) =>
+    request<Holiday>('/api/holidays', { method: 'POST', body: JSON.stringify(input) }),
+  deleteHoliday: (id: string) => request<void>(`/api/holidays/${id}`, { method: 'DELETE' }),
 
   // tasks (US-002〜)
   listTasks: (projectId?: string) =>

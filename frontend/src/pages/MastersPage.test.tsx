@@ -34,4 +34,33 @@ describe('MastersPage (要員)', () => {
 
     await waitFor(() => expect(screen.getByText(/山田 太郎/)).toBeInTheDocument());
   });
+
+  it('祝日を登録すると一覧に追加される', async () => {
+    const created = { id: 'h1', date: '2026-01-01T00:00:00.000Z', name: '元日' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        let body: unknown = [];
+        if (url.includes('/api/holidays') && init?.method === 'POST') body = created;
+        else if (url.includes('/api/holidays')) body = [];
+        else if (url.includes('/api/members')) body = [];
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <MastersPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByLabelText('祝日の日付'), '2026-01-01');
+    await userEvent.type(screen.getByLabelText('祝日の名称'), '元日');
+    await userEvent.click(screen.getByRole('button', { name: '祝日を登録' }));
+
+    await waitFor(() => expect(screen.getByText(/元日/)).toBeInTheDocument());
+  });
 });
