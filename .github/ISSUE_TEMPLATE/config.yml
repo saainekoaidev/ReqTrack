@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 質問 / 議論
+    url: https://github.com/saainekoaidev/claude-workflow-starter/discussions
+    about: バグ報告 / 機能要望以外の質問はこちら (該当 repo に Discussions があれば差し替え)

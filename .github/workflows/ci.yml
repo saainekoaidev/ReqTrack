@@ -1,0 +1,49 @@
+name: CI
+
+# 雛形 CI workflow。stack 確定後に install / build / test / e2e ステップを埋める。
+# 詳細は WG05 の参考実装を参照: https://github.com/saainekoaidev/wg05-sandbox/blob/main/.github/workflows/ci.yml
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+# 同一 ref への連続 push で進行中の旧 run を自動キャンセル。
+# main は merge 後の検証が後続 push でキャンセルされないように対象外にする。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: build + unit + e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # TODO: スタックに応じて以下を埋める。
+      # 例 (Node.js + pnpm):
+      # - name: Setup pnpm
+      #   uses: pnpm/action-setup@v4
+      #   with:
+      #     version: 10
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version-file: .nvmrc
+      #     cache: pnpm
+      # - name: Install dependencies
+      #   run: pnpm install --frozen-lockfile
+      # - name: Build
+      #   run: pnpm -r build
+      # - name: Unit tests
+      #   run: pnpm -r test
+
+      - name: Placeholder (replace this with stack-specific steps)
+        run: |
+          echo "CI workflow not yet configured."
+          echo "See README.md and replace TODO blocks in .github/workflows/ci.yml"
+          exit 0
