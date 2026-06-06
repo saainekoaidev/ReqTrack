@@ -84,3 +84,72 @@ function clampPercent(n: number): number {
   if (Number.isNaN(n)) return 0;
   return Math.min(100, Math.max(0, Math.round(n)));
 }
+
+// ---- ガント初版のスケジューリング (US-004) ----
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** YYYY-MM-DD (UTC) 文字列に変換する。 */
+export function toDateKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** 稼働日か判定する(土日でなく、祝日集合に含まれない)。 */
+export function isWorkingDay(d: Date, holidays: ReadonlySet<string>): boolean {
+  const day = d.getUTCDay();
+  if (day === 0 || day === 6) return false; // 日(0)・土(6)
+  return !holidays.has(toDateKey(d));
+}
+
+/** date 以降(当日含む)で最初の稼働日を返す。 */
+export function nextWorkingDay(date: Date, holidays: ReadonlySet<string>): Date {
+  const d = new Date(date.getTime());
+  while (!isWorkingDay(d, holidays)) {
+    d.setTime(d.getTime() + DAY_MS);
+  }
+  return d;
+}
+
+export interface EstimatedTask {
+  id: string;
+  estimateDays: number;
+}
+
+export interface ScheduledTask {
+  id: string;
+  plannedStart: Date;
+  plannedEnd: Date;
+}
+
+/**
+ * 見積(人日)からタスクを直列にスケジューリングする (US-004 ガント初版)。
+ * - 稼働日(土日・祝日を除く)のみカウント
+ * - 各タスクの所要稼働日数 = max(1, ceil(estimateDays))
+ * - 前タスクの終了の翌稼働日から次タスクを開始する(直列)
+ */
+export function scheduleTasks(
+  tasks: EstimatedTask[],
+  startDate: Date,
+  holidays: ReadonlySet<string> = new Set(),
+): ScheduledTask[] {
+  const result: ScheduledTask[] = [];
+  let cursor = nextWorkingDay(startDate, holidays);
+
+  for (const task of tasks) {
+    const duration = Math.max(1, Math.ceil(task.estimateDays || 0));
+    const plannedStart = nextWorkingDay(cursor, holidays);
+    let counted = 1;
+    let day = new Date(plannedStart.getTime());
+    while (counted < duration) {
+      day.setTime(day.getTime() + DAY_MS);
+      day = nextWorkingDay(day, holidays);
+      counted += 1;
+    }
+    const plannedEnd = day;
+    result.push({ id: task.id, plannedStart, plannedEnd });
+    // 次タスクは終了の翌日(以降の最初の稼働日)から
+    cursor = nextWorkingDay(new Date(plannedEnd.getTime() + DAY_MS), holidays);
+  }
+
+  return result;
+}

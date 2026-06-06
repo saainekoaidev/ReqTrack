@@ -2,7 +2,13 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { prisma } from '../db.js';
-import { detectDelay, delayedMembers, type PlannedTask } from '../domain/schedule.js';
+import {
+  detectDelay,
+  delayedMembers,
+  scheduleTasks,
+  toDateKey,
+  type PlannedTask,
+} from '../domain/schedule.js';
 
 // タスク/工程 + 進捗報告 + 遅延検出 (US-002/003/004/007/008/009/010)
 export const tasks = new Hono();
@@ -77,6 +83,40 @@ tasks.patch('/:id', zValidator('json', taskPatch), async (c) => {
       assigneeId: v.assigneeId,
       progress: v.progress,
     },
+    include: { assignee: true, requirement: true },
+  });
+  return c.json(updated);
+});
+
+// ガント初版を生成する (US-004)。見積から稼働日ベースで計画日を割り付ける。
+const scheduleInput = z.object({
+  projectId: z.string().min(1),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate は YYYY-MM-DD 形式'),
+});
+
+tasks.post('/schedule', zValidator('json', scheduleInput), async (c) => {
+  const { projectId, startDate } = c.req.valid('json');
+  const [projectTasks, holidayRows] = await Promise.all([
+    prisma.task.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } }),
+    prisma.holiday.findMany(),
+  ]);
+  const holidays = new Set(holidayRows.map((h) => toDateKey(h.date)));
+  const scheduled = scheduleTasks(
+    projectTasks.map((t) => ({ id: t.id, estimateDays: t.estimateDays })),
+    new Date(`${startDate}T00:00:00.000Z`),
+    holidays,
+  );
+  await prisma.$transaction(
+    scheduled.map((s) =>
+      prisma.task.update({
+        where: { id: s.id },
+        data: { plannedStart: s.plannedStart, plannedEnd: s.plannedEnd },
+      }),
+    ),
+  );
+  const updated = await prisma.task.findMany({
+    where: { projectId },
+    orderBy: [{ plannedStart: 'asc' }, { createdAt: 'asc' }],
     include: { assignee: true, requirement: true },
   });
   return c.json(updated);
