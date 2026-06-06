@@ -68,3 +68,14 @@ describe('requirements バリデーション', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/tasks バリデーション', () => {
+  it('name が無いと 400', async () => {
+    const res = await app.request('/api/tasks', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'p1' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});

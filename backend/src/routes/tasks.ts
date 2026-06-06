@@ -23,10 +23,15 @@ const reportInput = z.object({
   comment: z.string().optional(),
 });
 
-tasks.get('/', async (c) => {
+// GET /api/tasks?projectId=xxx (任意。指定時はそのプロジェクトに絞り込む)
+const listQuery = z.object({ projectId: z.string().min(1).optional() });
+
+tasks.get('/', zValidator('query', listQuery), async (c) => {
+  const { projectId } = c.req.valid('query');
   const list = await prisma.task.findMany({
-    orderBy: { plannedStart: 'asc' },
-    include: { assignee: true },
+    where: projectId ? { projectId } : undefined,
+    orderBy: [{ plannedStart: 'asc' }, { createdAt: 'asc' }],
+    include: { assignee: true, requirement: true },
   });
   return c.json(list);
 });
