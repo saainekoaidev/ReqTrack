@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, type Project, type Task } from '../api/client';
 import GanttChart from '../components/GanttChart';
+import { overallProgress } from '../lib/gantt';
 
 // ガントチャート画面 (US-004)。見積から初版を生成し、計画を可視化する。
 export default function GanttPage() {
@@ -9,6 +10,8 @@ export default function GanttPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [startDate, setStartDate] = useState('2026-06-08');
   const [error, setError] = useState<string | null>(null);
+
+  const overall = useMemo(() => overallProgress(tasks), [tasks]);
 
   useEffect(() => {
     api
@@ -78,6 +81,19 @@ export default function GanttPage() {
           見積(人日)をもとに、土日・祝日を除いた稼働日でタスクを直列に割り付けます。
         </p>
       </div>
+
+      {tasks.length > 0 && (
+        <div className="card">
+          <h3>全体進捗</h3>
+          <div className="progress-summary">
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${overall}%` }} />
+            </div>
+            <strong aria-label="全体進捗率">{overall}%</strong>
+          </div>
+          <p className="muted">進捗報告(US-007)を見積で加重平均した全体進捗です。</p>
+        </div>
+      )}
 
       <div className="card gantt-card">
         <GanttChart tasks={tasks} />

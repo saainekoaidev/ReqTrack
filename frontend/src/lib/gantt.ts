@@ -54,6 +54,20 @@ export function buildGantt(tasks: Task[]): GanttModel {
   return { days, rows };
 }
 
+/**
+ * 全体進捗率(見積で重み付けした加重平均) (US-008)。
+ * 見積が全て 0 の場合はタスク数で単純平均する。
+ */
+export function overallProgress(tasks: Task[]): number {
+  if (tasks.length === 0) return 0;
+  const totalWeight = tasks.reduce((s, t) => s + (t.estimateDays || 0), 0);
+  if (totalWeight === 0) {
+    return Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length);
+  }
+  const weighted = tasks.reduce((s, t) => s + t.progress * (t.estimateDays || 0), 0);
+  return Math.round(weighted / totalWeight);
+}
+
 /** 軸ラベル用に M/D を返す。 */
 export function dayLabel(d: Date): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
