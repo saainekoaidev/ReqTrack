@@ -7,7 +7,9 @@ import {
   isWorkingDay,
   nextWorkingDay,
   toDateKey,
+  buildRecoveryPlan,
   type PlannedTask,
+  type RecoveryTask,
 } from './schedule.js';
 
 const base: PlannedTask = {
@@ -99,6 +101,49 @@ describe('scheduleTasks', () => {
     const result = scheduleTasks([{ id: 'a', estimateDays: 0 }], new Date('2026-06-08T00:00:00Z'));
     expect(toDateKey(result[0]!.plannedStart)).toBe('2026-06-08');
     expect(toDateKey(result[0]!.plannedEnd)).toBe('2026-06-08');
+  });
+});
+
+describe('buildRecoveryPlan', () => {
+  const now = new Date('2026-06-06T00:00:00Z'); // 10日タスクの中間 → 期待50%
+  const baseTask: RecoveryTask = {
+    id: 't',
+    name: 'task',
+    estimateDays: 10,
+    assigneeName: '山田',
+    plannedStart: new Date('2026-06-01T00:00:00Z'),
+    plannedEnd: new Date('2026-06-11T00:00:00Z'),
+    progress: 0,
+  };
+
+  it('遅延タスクのみを対象に挽回策を提示し、遅れ量降順に並べる', () => {
+    const plan = buildRecoveryPlan(
+      [
+        { ...baseTask, id: 'a', name: '軽微', progress: 45 }, // behind 5 → low
+        { ...baseTask, id: 'b', name: '重度', progress: 0 }, // behind 50 → high
+        { ...baseTask, id: 'c', name: '順調', progress: 60 }, // not delayed
+      ],
+      now,
+    );
+    expect(plan.delayedCount).toBe(2);
+    expect(plan.actions.map((a) => a.taskId)).toEqual(['b', 'a']); // behind 降順
+    expect(plan.actions[0]!.severity).toBe('high');
+    expect(plan.actions[1]!.severity).toBe('low');
+  });
+
+  it('担当未割当なら割当を促す', () => {
+    const plan = buildRecoveryPlan(
+      [{ ...baseTask, assigneeName: null, progress: 0 }],
+      now,
+    );
+    expect(plan.actions[0]!.suggestions.some((s) => s.includes('担当者が未割当'))).toBe(true);
+  });
+
+  it('残作業(人日)を見積×残進捗で概算する', () => {
+    // estimate 10, actual 20% → remaining 8 人日
+    const plan = buildRecoveryPlan([{ ...baseTask, progress: 20 }], now);
+    expect(plan.actions[0]!.remainingDays).toBe(8);
+    expect(plan.totalRemainingDays).toBe(8);
   });
 });
 

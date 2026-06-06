@@ -7,6 +7,7 @@ import {
   delayedMembers,
   scheduleTasks,
   toDateKey,
+  buildRecoveryPlan,
   type PlannedTask,
 } from '../domain/schedule.js';
 
@@ -167,6 +168,29 @@ tasks.get('/delays/members', zValidator('query', listQuery), async (c) => {
     name: memberName.get(m.assigneeId) ?? '(不明)',
   }));
   return c.json(result);
+});
+
+// リカバリプラン案を生成・提示する (US-011)。?projectId= で絞り込み可能。
+tasks.get('/recovery', zValidator('query', listQuery), async (c) => {
+  const { projectId } = c.req.valid('query');
+  const now = new Date();
+  const all = await prisma.task.findMany({
+    where: projectId ? { projectId } : undefined,
+    include: { assignee: true },
+  });
+  const plan = buildRecoveryPlan(
+    all.map((t) => ({
+      id: t.id,
+      name: t.name,
+      estimateDays: t.estimateDays,
+      assigneeName: t.assignee?.name ?? null,
+      plannedStart: t.plannedStart,
+      plannedEnd: t.plannedEnd,
+      progress: t.progress,
+    })),
+    now,
+  );
+  return c.json(plan);
 });
 
 function toPlanned(t: {

@@ -185,6 +185,36 @@ button:disabled {
   border-color: var(--color-danger);
 }
 
+.badge {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  color: #fff;
+}
+
+.badge-high {
+  background: var(--color-danger);
+}
+
+.badge-medium {
+  background: var(--color-warning);
+}
+
+.badge-low {
+  background: var(--color-ok);
+}
+
+.recovery-item + .recovery-item {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.recovery-item h4 {
+  margin: 0 0 var(--space-1);
+}
+
 .progress-summary {
   display: flex;
   align-items: center;
