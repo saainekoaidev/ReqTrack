@@ -5,28 +5,85 @@
 
 ## 1. アーキテクチャ概要
 
-(コンテキスト図 / コンポーネント図 / 主要技術スタックを記述)
+pnpm workspace のモノレポ。スタック選定の根拠は [ADR 0002](adr/0002-stack-and-architecture.md)。
+
+```
+reqtrack/
+├── frontend/   React 18 + Vite 6 + TypeScript (SPA)
+│   └── e2e/    Playwright
+├── backend/    Hono 4 + @hono/node-server (REST API)
+│   ├── prisma/ schema.prisma + migrations + seed
+│   └── src/
+│       ├── routes/    members / holidays / tasks
+│       └── domain/    schedule.ts (遅延ロジック / DB 非依存)
+└── docs/       requirements.md / design.md / ui.md / adr/
+```
+
+- 主要技術スタック: React, Vite, TypeScript / Hono, Prisma, SQLite / Vitest, Playwright / GitHub Actions。
+- dev 時は frontend (`:5173`) が `/api` を backend (`:8787`) へ Vite proxy で転送する。
 
 ## 2. データモデル
 
-(主要エンティティとリレーションを記述。詳細スキーマは ER 図 / Prisma schema 等で別管理)
+一次正は [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma)。
+
+| エンティティ | 役割 | 関連 US |
+|---|---|---|
+| `Project` | 案件 = 1 ガントチャート | 全体 |
+| `Requirement` | ヒアリング/提示された要件 | US-001, US-002 |
+| `Member` | 要員(担当者/報告者) | US-005 |
+| `Holiday` | 祝日(非稼働日) | US-006 |
+| `Task` | タスク/工程。見積・計画日・進捗率を保持 | US-002, US-003, US-004, US-008 |
+| `ProgressReport` | 進捗報告(履歴) | US-007 |
+
+主なリレーション: `Project 1—* Requirement`, `Project 1—* Task`, `Requirement 1—* Task`, `Member 1—* Task` (担当), `Task 1—* ProgressReport`, `Member 1—* ProgressReport`。
 
 ## 3. API
 
-(エンドポイント一覧と入出力。OpenAPI / 個別 .md / コード自動生成のいずれかで管理する旨を明記)
+ベースパス `/api`。入出力は JSON。検証は zod (不正入力は 400)。
+
+| Method | Path | 概要 | US |
+|---|---|---|---|
+| GET | `/api/health` | ヘルスチェック | — |
+| GET | `/api/members` | 要員一覧 | US-005 |
+| POST | `/api/members` | 要員登録 | US-005 |
+| DELETE | `/api/members/:id` | 要員削除 | US-005 |
+| GET | `/api/holidays` | 祝日一覧 | US-006 |
+| POST | `/api/holidays` | 祝日登録 | US-006 |
+| DELETE | `/api/holidays/:id` | 祝日削除 | US-006 |
+| GET | `/api/tasks` | タスク一覧 | US-004 |
+| POST | `/api/tasks` | タスク登録 | US-002〜004 |
+| POST | `/api/tasks/:id/reports` | 進捗報告→進捗率反映 | US-007, US-008 |
+| GET | `/api/tasks/delays` | 遅延タスク検出 | US-009 |
+| GET | `/api/tasks/delays/members` | 遅れ要員の洗い出し | US-010 |
+
+> 上流の要件→タスク自動洗い出し/見積/ガント初版生成 (US-001〜004 の自動化) と、リカバリプラン提示 (US-011) は、本初期構成では CRUD/検出 API までを用意し、AI 生成ロジックは後続 US で実装する。
 
 ## 4. 認証 / 権限
 
-(認可方式 / セッション管理 / role 設計)
+初期構成では未実装(社内・単一テナント前提)。要員ログインと role (PM / 要員) 設計は後続 US で ADR を起こして決める。
 
 ## 5. 例外処理 / エラーレスポンス
 
-(エラー区分とフロント挙動)
+- 入力検証エラー: 400 (`@hono/zod-validator`)。
+- 未定義ルート: 404 `{ "error": "Not Found" }`。
+- 想定外例外: 500 `{ "error": "Internal Server Error" }` (`app.onError` で集約)。
+- frontend は API 失敗時に `role="alert"` でエラー表示し、画面自体は描画を継続する。
 
 ## 6. 主要コンポーネント
 
-(画面コンポーネント / 共有コンポーネント / Provider / Context 等)
+- `frontend/src/App.tsx`: トップ画面 (要員一覧の表示)。
+- `frontend/src/api/client.ts`: backend API クライアント。
+- `frontend/src/styles/app.css`: **デザインシステムの一次正** (CSS token / theme)。他所に同等定義を置かない。
+- `backend/src/app.ts`: Hono アプリ生成 (`createApp`)。テストから `app.request()` で再利用。
+- `backend/src/domain/schedule.ts`: 期待進捗・遅延判定・遅れ要員集約 (純粋関数)。
 
 ## 7. テスト戦略
 
-(単体 / 統合 / E2E のレイヤと責務分担)
+| レイヤ | ツール | 対象 |
+|---|---|---|
+| 単体 (純粋ロジック) | Vitest (node) | `domain/schedule.ts` の遅延算定 |
+| API (DB 非依存経路) | Vitest + `app.request` | health / 404 / バリデーション 400 |
+| コンポーネント | Vitest (jsdom) + Testing Library | `App.tsx` の取得/エラー表示 |
+| E2E | Playwright | トップ画面の表示 |
+
+DB を伴う API 統合テストは、migrate 済み SQLite を用意して後続で追加する。

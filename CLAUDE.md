@@ -1,10 +1,11 @@
 # プロジェクト名 — 作業指示
 
-> このファイルは [claude-workflow-starter](https://github.com/saainekoaidev/claude-workflow-starter) から bootstrap された雛形です。プロジェクト固有の内容に置き換えて運用してください。
+ReqTrack(要件一覧から見積とガントチャートを作って進捗を管理する)
 
 ## プロジェクト概要
 
-(プロジェクトの目的・想定スコープ・対象ユーザを 2-3 行で記述)
+MS Project のようなガントチャートの作成と進捗管理ができるシステムを構築する。
+要件のヒアリングから見積・スケジュール作成（上流）と、実行時の進捗管理・遅延対応（下流）を一つのシステムで繋ぎ、上流工程と下流工程を一貫して扱えるものとする。
 
 ---
 
@@ -59,8 +60,8 @@ User Story (要件 1 件分) の実装が完了したら, 以下の手順で mai
 | 1 | VSCode + Claude Code | AI支援開発の中核 |
 | 2 | Git + GitHub | ソース管理 |
 | 3 | GitHub Issues + Projects | バックログ |
-| 4 | (UI ツール) | UI 設計 |
+| 4 | docs/design.md` を元に LLM で生成 | UI 設計 |
 | 5 | docs/ + docs/adr/ | 設計書 + ADR |
 | 6 | CLAUDE.md + .claude/settings.json | ガードレール |
 | 7 | GitHub Actions | CI/CD |
-| 8 | (テストフレームワーク) | 単体テスト |
+| 8 | Vitest | 単体テスト |

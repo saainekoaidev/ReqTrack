@@ -1,0 +1,21 @@
+{
+  "name": "reqtrack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "上流(要件→見積→ガント初版)と下流(進捗管理→遅延対応)を一気通貫で扱うプロジェクト管理システム",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild"]
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "dev": "pnpm -r --parallel dev",
+    "e2e": "pnpm --filter @reqtrack/frontend e2e"
+  }
+}
