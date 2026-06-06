@@ -17,12 +17,14 @@ const delay = {
 describe('DelaysPage', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('遅延タスクを表示する', async () => {
+  it('遅延タスクと遅れ要員を表示する', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
         let body: unknown = [];
         if (url.includes('/api/projects')) body = [project];
+        else if (url.includes('/api/tasks/delays/members'))
+          body = [{ assigneeId: 'm1', name: '山田', totalBehind: 30, taskIds: ['t1'] }];
         else if (url.includes('/api/tasks/delays')) body = [delay];
         return new Response(JSON.stringify(body), {
           status: 200,
@@ -39,6 +41,8 @@ describe('DelaysPage', () => {
 
     await waitFor(() => expect(screen.getByText('設計')).toBeInTheDocument());
     expect(screen.getByText('▲ 30%')).toBeInTheDocument();
-    expect(screen.getByText('山田')).toBeInTheDocument();
+    // 遅れ要員セクション
+    await waitFor(() => expect(screen.getByText('累計遅れ 30%')).toBeInTheDocument());
+    expect(screen.getByText(/遅延タスク 1 件/)).toBeInTheDocument();
   });
 });
