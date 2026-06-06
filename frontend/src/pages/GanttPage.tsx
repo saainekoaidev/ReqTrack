@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Project, type Task } from '../api/client';
 import GanttChart from '../components/GanttChart';
-import { overallProgress } from '../lib/gantt';
+import { overallProgress, workloadByAssignee } from '../lib/gantt';
 
-// ガントチャート画面 (US-004)。見積から初版を生成し、計画を可視化する。
+// ガントチャート画面 (US-004 / US-015)。見積から初版を生成し、ce2 準拠の列で可視化する。
 export default function GanttPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
   const [startDate, setStartDate] = useState('2026-06-08');
   const [error, setError] = useState<string | null>(null);
 
   const overall = useMemo(() => overallProgress(tasks), [tasks]);
+  const workload = useMemo(() => workloadByAssignee(tasks), [tasks]);
 
   useEffect(() => {
     api
@@ -21,6 +23,10 @@ export default function GanttPage() {
         if (ps[0]) setProjectId(ps[0].id);
       })
       .catch((e: unknown) => setError(toMessage(e)));
+    api
+      .listHolidays()
+      .then((hs) => setHolidays(new Set(hs.map((h) => h.date.slice(0, 10)))))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -96,8 +102,30 @@ export default function GanttPage() {
       )}
 
       <div className="card gantt-card">
-        <GanttChart tasks={tasks} />
+        <GanttChart tasks={tasks} holidays={holidays} />
       </div>
+
+      {workload.length > 0 && (
+        <div className="card">
+          <h3>担当者別工数</h3>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>担当者</th>
+                <th>工数(人日)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workload.map((w) => (
+                <tr key={w.name}>
+                  <td>{w.name}</td>
+                  <td>{w.days}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
