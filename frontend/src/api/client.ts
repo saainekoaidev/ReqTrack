@@ -25,6 +25,30 @@ export interface Member {
   createdAt: string;
 }
 
+export interface Task {
+  id: string;
+  projectId: string;
+  requirementId: string | null;
+  name: string;
+  estimateDays: number;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  progress: number;
+  assigneeId: string | null;
+  assignee?: Member | null;
+  requirement?: Requirement | null;
+}
+
+export interface CreateTaskInput {
+  projectId: string;
+  requirementId?: string;
+  name: string;
+  estimateDays?: number;
+  plannedStart?: string;
+  plannedEnd?: string;
+  assigneeId?: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'content-type': 'application/json' },
@@ -53,4 +77,10 @@ export const api = {
 
   // members
   listMembers: () => request<Member[]>('/api/members'),
+
+  // tasks (US-002〜)
+  listTasks: (projectId?: string) =>
+    request<Task[]>(`/api/tasks${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
+  createTask: (input: CreateTaskInput) =>
+    request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
 };

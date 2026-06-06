@@ -5,6 +5,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 const navItems: { to: string; label: string }[] = [
   { to: '/', label: 'ホーム' },
   { to: '/requirements', label: '要件' },
+  { to: '/tasks', label: 'タスク' },
 ];
 
 export default function Layout() {
