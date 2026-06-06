@@ -49,6 +49,7 @@ reqtrack/
 | GET | `/api/requirements?projectId=` | 要件一覧 | US-001 |
 | POST | `/api/requirements` | 要件登録 | US-001 |
 | DELETE | `/api/requirements/:id` | 要件削除 | US-001 |
+| POST | `/api/requirements/:id/expand` | 要件から WBS(機能→対象→作業タスク)+標準工程展開 | US-013 |
 | GET | `/api/members` | 要員一覧 | US-005 |
 | POST | `/api/members` | 要員登録 | US-005 |
 | DELETE | `/api/members/:id` | 要員削除 | US-005 |

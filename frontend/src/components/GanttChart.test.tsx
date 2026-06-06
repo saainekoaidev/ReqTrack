@@ -14,6 +14,12 @@ function task(p: Partial<Task> & { id: string }): Task {
     plannedEnd: null,
     progress: 0,
     assigneeId: null,
+    level: 3,
+    wbsId: null,
+    parentId: null,
+    phase: null,
+    estimateNote: null,
+    kind: 'task',
     ...p,
   };
 }

@@ -70,6 +70,8 @@ const taskPatch = z.object({
   plannedEnd: z.string().datetime().nullable().optional(),
   assigneeId: z.string().min(1).nullable().optional(),
   progress: z.number().int().min(0).max(100).optional(),
+  phase: z.string().nullable().optional(),
+  estimateNote: z.string().nullable().optional(),
 });
 
 tasks.patch('/:id', zValidator('json', taskPatch), async (c) => {
@@ -87,6 +89,8 @@ tasks.patch('/:id', zValidator('json', taskPatch), async (c) => {
         v.plannedEnd === undefined ? undefined : v.plannedEnd ? new Date(v.plannedEnd) : null,
       assigneeId: v.assigneeId,
       progress: v.progress,
+      phase: v.phase,
+      estimateNote: v.estimateNote,
     },
     include: { assignee: true, requirement: true },
   });
