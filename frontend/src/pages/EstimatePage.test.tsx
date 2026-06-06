@@ -42,7 +42,7 @@ describe('EstimatePage', () => {
       </MemoryRouter>,
     );
 
-    const input = await screen.findByLabelText('設計 の見積');
+    const input = await screen.findByLabelText('設計 の工数');
     await userEvent.clear(input);
     await userEvent.type(input, '3');
     await userEvent.click(screen.getByRole('button', { name: '保存' }));

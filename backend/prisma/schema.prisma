@@ -61,8 +61,10 @@ model Task {
   requirement   Requirement?     @relation(fields: [requirementId], references: [id], onDelete: SetNull)
   requirementId String?
   name          String
-  // 見積 (US-003)
+  // 見積 (US-003)。小数点以下の自由値 (US-012、効率化調整で負値も可)
   estimateDays  Float            @default(0)
+  // 稼働率 0 < r <= 1 (US-012)。期間(営業日) = ceil(工数 ÷ 稼働率)
+  utilizationRate Float          @default(1.0)
   // ガント計画 (US-004)
   plannedStart  DateTime?
   plannedEnd    DateTime?

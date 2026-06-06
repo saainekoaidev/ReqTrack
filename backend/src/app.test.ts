@@ -102,6 +102,17 @@ describe('PATCH /api/tasks/:id バリデーション', () => {
   });
 });
 
+describe('POST /api/tasks utilizationRate バリデーション', () => {
+  it('稼働率が 1 を超えると 400', async () => {
+    const res = await app.request('/api/tasks', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'p1', name: 'x', utilizationRate: 1.5 }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/tasks/schedule バリデーション', () => {
   it('startDate の形式が不正だと 400', async () => {
     const res = await app.request('/api/tasks/schedule', {

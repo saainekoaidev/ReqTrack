@@ -212,6 +212,8 @@ export function nextWorkingDay(date: Date, holidays: ReadonlySet<string>): Date 
 export interface EstimatedTask {
   id: string;
   estimateDays: number;
+  /** 稼働率 (0 < r <= 1)。未指定は 1.0(専従)。 */
+  utilizationRate?: number;
 }
 
 export interface ScheduledTask {
@@ -220,10 +222,27 @@ export interface ScheduledTask {
   plannedEnd: Date;
 }
 
+/** 稼働率を 0 < r <= 1 に正規化する(不正値・未指定は 1.0)。 */
+export function normalizeUtilization(rate: number | undefined | null): number {
+  if (rate == null || Number.isNaN(rate) || rate <= 0) return 1;
+  return Math.min(1, rate);
+}
+
 /**
- * 見積(人日)からタスクを直列にスケジューリングする (US-004 ガント初版)。
+ * 工数(人日)と稼働率からカレンダー上の所要営業日数を算出する (US-012)。
+ * 期間(営業日) = ceil(工数 ÷ 稼働率)。最低 1 営業日。
+ * 例: 工数 0.6 人日 ÷ 稼働率 0.2 = 3 営業日。工数 3 人日 ÷ 1.0 = 3 営業日。
+ */
+export function spanWorkingDays(estimateDays: number, utilizationRate?: number): number {
+  const effort = Math.max(0, estimateDays || 0);
+  const rate = normalizeUtilization(utilizationRate);
+  return Math.max(1, Math.ceil(effort / rate));
+}
+
+/**
+ * 見積(人日)と稼働率からタスクを直列にスケジューリングする (US-004 / US-012)。
  * - 稼働日(土日・祝日を除く)のみカウント
- * - 各タスクの所要稼働日数 = max(1, ceil(estimateDays))
+ * - 各タスクの所要営業日数 = spanWorkingDays(工数, 稼働率)
  * - 前タスクの終了の翌稼働日から次タスクを開始する(直列)
  */
 export function scheduleTasks(
@@ -235,7 +254,7 @@ export function scheduleTasks(
   let cursor = nextWorkingDay(startDate, holidays);
 
   for (const task of tasks) {
-    const duration = Math.max(1, Math.ceil(task.estimateDays || 0));
+    const duration = spanWorkingDays(task.estimateDays, task.utilizationRate);
     const plannedStart = nextWorkingDay(cursor, holidays);
     let counted = 1;
     let day = new Date(plannedStart.getTime());
