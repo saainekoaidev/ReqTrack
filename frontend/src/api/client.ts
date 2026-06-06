@@ -41,6 +41,13 @@ export interface DelayItem {
   isDelayed: boolean;
 }
 
+export interface DelayedMember {
+  assigneeId: string;
+  name: string;
+  totalBehind: number;
+  taskIds: string[];
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -126,5 +133,10 @@ export const api = {
   getDelays: (projectId?: string) =>
     request<DelayItem[]>(
       `/api/tasks/delays${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
+    ),
+  // 遅れ要員の洗い出し (US-010)
+  getDelayedMembers: (projectId?: string) =>
+    request<DelayedMember[]>(
+      `/api/tasks/delays/members${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
     ),
 };

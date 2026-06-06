@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { api, type DelayItem, type Project } from '../api/client';
+import { api, type DelayItem, type DelayedMember, type Project } from '../api/client';
 
-// 遅延ダッシュボード (US-009 遅れ検出 / US-010 遅れ要員)。本 US では遅延タスクを表示する。
+// 遅延ダッシュボード (US-009 遅れ検出 / US-010 遅れ要員)。
 export default function DelaysPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [delays, setDelays] = useState<DelayItem[]>([]);
+  const [delayedMembers, setDelayedMembers] = useState<DelayedMember[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,6 +24,10 @@ export default function DelaysPage() {
     api
       .getDelays(projectId)
       .then(setDelays)
+      .catch((e: unknown) => setError(toMessage(e)));
+    api
+      .getDelayedMembers(projectId)
+      .then(setDelayedMembers)
       .catch((e: unknown) => setError(toMessage(e)));
   }, [projectId]);
 
@@ -76,6 +81,25 @@ export default function DelaysPage() {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      <div className="card">
+        <h3>遅れている要員</h3>
+        {delayedMembers.length === 0 ? (
+          <p className="muted">遅れている要員はいません。</p>
+        ) : (
+          <ul className="list-actionable">
+            {delayedMembers.map((m) => (
+              <li key={m.assigneeId}>
+                <span>
+                  {m.name}
+                  <span className="muted">（遅延タスク {m.taskIds.length} 件）</span>
+                </span>
+                <span className="error">累計遅れ {m.totalBehind}%</span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </section>
