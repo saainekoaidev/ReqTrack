@@ -179,6 +179,92 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Gantt (US-004 / US-008) */
+.gantt-card {
+  overflow-x: auto;
+}
+
+.gantt {
+  display: inline-block;
+  min-width: 100%;
+  font-size: 0.8rem;
+}
+
+.gantt-row {
+  display: grid;
+  align-items: stretch;
+  min-height: 28px;
+  position: relative;
+}
+
+.gantt-head {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.gantt-cell {
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.gantt-name {
+  justify-content: flex-start;
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  position: sticky;
+  left: 0;
+  background: var(--color-surface);
+  border-right: 2px solid var(--color-border);
+}
+
+.gantt-axis {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.gantt-axis.is-weekend,
+.gantt-track.is-weekend {
+  background: rgba(0, 0, 0, 0.035);
+}
+
+.gantt-bar {
+  grid-row: 1;
+  align-self: center;
+  height: 18px;
+  margin: 0 2px;
+  background: rgba(37, 99, 235, 0.25);
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.gantt-bar-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--color-primary);
+  opacity: 0.55;
+}
+
+.gantt-bar-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 4px;
+  font-size: 0.65rem;
+  color: var(--color-text);
+}
+
 .muted {
   color: var(--color-text-muted);
 }

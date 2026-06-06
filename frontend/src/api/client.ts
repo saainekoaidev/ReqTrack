@@ -85,4 +85,10 @@ export const api = {
     request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
   updateTask: (id: string, patch: Partial<Omit<CreateTaskInput, 'projectId'>> & { progress?: number }) =>
     request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  // ガント初版生成 (US-004)
+  generateSchedule: (projectId: string, startDate: string) =>
+    request<Task[]>('/api/tasks/schedule', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, startDate }),
+    }),
 };

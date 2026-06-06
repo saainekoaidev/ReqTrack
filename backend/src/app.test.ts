@@ -90,3 +90,14 @@ describe('PATCH /api/tasks/:id バリデーション', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/tasks/schedule バリデーション', () => {
+  it('startDate の形式が不正だと 400', async () => {
+    const res = await app.request('/api/tasks/schedule', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'p1', startDate: '2026/06/08' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});

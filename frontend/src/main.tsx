@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import RequirementsPage from './pages/RequirementsPage';
 import TasksPage from './pages/TasksPage';
 import EstimatePage from './pages/EstimatePage';
+import GanttPage from './pages/GanttPage';
 import './styles/app.css';
 
 const router = createBrowserRouter([
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
       { path: 'requirements', element: <RequirementsPage /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'estimate', element: <EstimatePage /> },
+      { path: 'gantt', element: <GanttPage /> },
     ],
   },
 ]);
