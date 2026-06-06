@@ -44,6 +44,11 @@ reqtrack/
 | Method | Path | 概要 | US |
 |---|---|---|---|
 | GET | `/api/health` | ヘルスチェック | — |
+| GET/POST | `/api/projects` | プロジェクト一覧/作成 | US-001 |
+| GET | `/api/projects/:id` | プロジェクト取得 | US-001 |
+| GET | `/api/requirements?projectId=` | 要件一覧 | US-001 |
+| POST | `/api/requirements` | 要件登録 | US-001 |
+| DELETE | `/api/requirements/:id` | 要件削除 | US-001 |
 | GET | `/api/members` | 要員一覧 | US-005 |
 | POST | `/api/members` | 要員登録 | US-005 |
 | DELETE | `/api/members/:id` | 要員削除 | US-005 |

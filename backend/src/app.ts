@@ -4,6 +4,8 @@ import { HTTPException } from 'hono/http-exception';
 import { members } from './routes/members.js';
 import { holidays } from './routes/holidays.js';
 import { tasks } from './routes/tasks.js';
+import { projects } from './routes/projects.js';
+import { requirements } from './routes/requirements.js';
 
 // アプリ生成を関数化してテスト(app.request)から再利用できるようにする。
 export function createApp() {
@@ -13,6 +15,8 @@ export function createApp() {
 
   app.get('/api/health', (c) => c.json({ status: 'ok' }));
 
+  app.route('/api/projects', projects);
+  app.route('/api/requirements', requirements);
   app.route('/api/members', members);
   app.route('/api/holidays', holidays);
   app.route('/api/tasks', tasks);

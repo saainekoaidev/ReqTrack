@@ -41,3 +41,30 @@ describe('POST /api/holidays バリデーション', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/projects バリデーション', () => {
+  it('name が無いと 400', async () => {
+    const res = await app.request('/api/projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ description: 'x' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('requirements バリデーション', () => {
+  it('POST で content が無いと 400', async () => {
+    const res = await app.request('/api/requirements', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'p1' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('GET で projectId 未指定だと 400', async () => {
+    const res = await app.request('/api/requirements');
+    expect(res.status).toBe(400);
+  });
+});
