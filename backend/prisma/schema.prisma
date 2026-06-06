@@ -61,6 +61,16 @@ model Task {
   requirement   Requirement?     @relation(fields: [requirementId], references: [id], onDelete: SetNull)
   requirementId String?
   name          String
+  // WBS 階層 (US-013)。level 1=機能 / 2=対象 / 3=作業タスク
+  level         Int              @default(3)
+  wbsId         String?
+  parent        Task?            @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId      String?
+  children      Task[]           @relation("TaskHierarchy")
+  // 工程区分 / 見積根拠 (US-013) と種別 (US-014: task|review|efficiency)
+  phase         String?
+  estimateNote  String?
+  kind          String           @default("task")
   // 見積 (US-003)。小数点以下の自由値 (US-012、効率化調整で負値も可)
   estimateDays  Float            @default(0)
   // 稼働率 0 < r <= 1 (US-012)。期間(営業日) = ceil(工数 ÷ 稼働率)
@@ -78,6 +88,7 @@ model Task {
 
   @@index([projectId])
   @@index([assigneeId])
+  @@index([parentId])
 }
 
 /// 進捗報告 (US-007)。タスクの進捗率へ反映され(US-008)、遅延検出の根拠になる(US-009/010)。

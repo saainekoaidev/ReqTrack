@@ -21,7 +21,7 @@ export default function TasksPage() {
       .catch((e: unknown) => setError(toMessage(e)));
   }, []);
 
-  useEffect(() => {
+  function reload() {
     if (!projectId) return;
     Promise.all([api.listRequirements(projectId), api.listTasks(projectId)])
       .then(([reqs, ts]) => {
@@ -29,7 +29,9 @@ export default function TasksPage() {
         setTasks(ts);
       })
       .catch((e: unknown) => setError(toMessage(e)));
-  }, [projectId]);
+  }
+
+  useEffect(reload, [projectId]);
 
   async function addTask(taskName: string, reqId?: string) {
     if (!taskName.trim() || !projectId) return;
@@ -37,6 +39,27 @@ export default function TasksPage() {
       const t = await api.createTask({ projectId, name: taskName.trim(), requirementId: reqId });
       setTasks((prev) => [...prev, t]);
       setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
+  // 要件から機能→標準工程(WBS)を展開 (US-013)
+  async function expand(reqId: string) {
+    try {
+      await api.expandWbs(reqId);
+      reload();
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
+  // 見積根拠(工数推定理由)を保存
+  async function saveNote(taskId: string, note: string) {
+    try {
+      const updated = await api.updateTask(taskId, { estimateNote: note });
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     } catch (e) {
       setError(toMessage(e));
     }
@@ -81,28 +104,61 @@ export default function TasksPage() {
             {requirements.map((r) => (
               <li key={r.id}>
                 <span>{r.content}</span>
-                <button type="button" onClick={() => addTask(r.content, r.id)}>
-                  タスク化
-                </button>
+                <span style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <button type="button" onClick={() => addTask(r.content, r.id)}>
+                    タスク化
+                  </button>
+                  <button type="button" onClick={() => expand(r.id)}>
+                    標準工程を展開
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
         )}
+        <p className="muted">
+          「標準工程を展開」で機能(level1)配下に 基本設計／詳細設計／コーディング／単体テスト／結合テスト を生成します (US-013)。
+        </p>
       </div>
 
       <div className="card">
-        <h3>タスク一覧</h3>
+        <h3>WBS / タスク一覧</h3>
         {tasks.length === 0 ? (
           <p className="muted">タスクがありません。</p>
         ) : (
-          <ul>
-            {tasks.map((t) => (
-              <li key={t.id}>
-                {t.name}
-                {t.requirement ? <span className="muted">（要件: {t.requirement.content}）</span> : null}
-              </li>
-            ))}
-          </ul>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>WBS</th>
+                <th>タスク</th>
+                <th>工程</th>
+                <th>見積根拠</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map((t) => (
+                <tr key={t.id}>
+                  <td className="muted">{t.wbsId ?? '—'}</td>
+                  <td style={{ paddingLeft: `calc(${(t.level ?? 3) - 1} * var(--space-3))` }}>
+                    {t.level === 1 ? <strong>{t.name}</strong> : t.name}
+                  </td>
+                  <td>{t.phase ?? ''}</td>
+                  <td>
+                    <input
+                      type="text"
+                      defaultValue={t.estimateNote ?? ''}
+                      placeholder="工数推定理由"
+                      aria-label={`${t.name} の見積根拠`}
+                      onBlur={(e) => {
+                        if (e.target.value !== (t.estimateNote ?? '')) saveNote(t.id, e.target.value);
+                      }}
+                      style={{ width: '100%' }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
         <form onSubmit={handleSubmit} className="inline-form">
           <input

@@ -74,6 +74,12 @@ export interface Task {
   plannedEnd: string | null;
   progress: number;
   assigneeId: string | null;
+  level: number;
+  wbsId: string | null;
+  parentId: string | null;
+  phase: string | null;
+  estimateNote: string | null;
+  kind: string;
   assignee?: Member | null;
   requirement?: Requirement | null;
 }
@@ -132,8 +138,23 @@ export const api = {
     request<Task[]>(`/api/tasks${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
   createTask: (input: CreateTaskInput) =>
     request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
-  updateTask: (id: string, patch: Partial<Omit<CreateTaskInput, 'projectId'>> & { progress?: number }) =>
-    request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  updateTask: (
+    id: string,
+    patch: Partial<Omit<CreateTaskInput, 'projectId'>> & {
+      progress?: number;
+      phase?: string | null;
+      estimateNote?: string | null;
+    },
+  ) => request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  // 要件から WBS+標準工程を展開 (US-013)
+  expandWbs: (
+    requirementId: string,
+    input: { targets?: string[]; phases?: string[]; assigneeId?: string } = {},
+  ) =>
+    request<Task[]>(`/api/requirements/${requirementId}/expand`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   // ガント初版生成 (US-004)
   generateSchedule: (projectId: string, startDate: string) =>
     request<Task[]>('/api/tasks/schedule', {

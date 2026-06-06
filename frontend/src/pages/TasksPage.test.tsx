@@ -53,9 +53,60 @@ describe('TasksPage', () => {
     await userEvent.click(btn);
 
     await waitFor(() => {
-      // タスク一覧(ul)内にタスク名が出る
+      // タスク一覧内にタスク名が出る
       const lists = screen.getAllByText('ログイン機能');
       expect(lists.length).toBeGreaterThanOrEqual(1);
     });
+  });
+
+  it('「標準工程を展開」で標準工程タスクが生成される (US-013)', async () => {
+    let expanded = false;
+    const phases = ['基本設計', '詳細設計', 'コーディング', '単体テスト', '結合テスト'];
+    mockFetch((url, init) => {
+      if (url.includes('/api/projects')) return [project];
+      if (url.includes('/api/requirements/r1/expand') && init?.method === 'POST') {
+        expanded = true;
+        return [];
+      }
+      if (url.includes('/api/requirements')) return [requirement];
+      if (url.includes('/api/tasks')) {
+        return expanded
+          ? phases.map((p, i) => ({
+              id: `t${i}`,
+              projectId: 'p1',
+              requirementId: 'r1',
+              name: p,
+              estimateDays: 0,
+              utilizationRate: 1,
+              plannedStart: null,
+              plannedEnd: null,
+              progress: 0,
+              assigneeId: null,
+              level: 3,
+              wbsId: `1.${i + 1}`,
+              parentId: 'f',
+              phase: p,
+              estimateNote: null,
+              kind: 'task',
+            }))
+          : [];
+      }
+      return [];
+    });
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    const btn = await screen.findByRole('button', { name: '標準工程を展開' });
+    await userEvent.click(btn);
+
+    await waitFor(() => expect(screen.getByText('1.1')).toBeInTheDocument());
+    expect(screen.getByText('1.5')).toBeInTheDocument();
+    // 工程列とタスク名列に出るため複数一致
+    expect(screen.getAllByText('基本設計').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('結合テスト').length).toBeGreaterThanOrEqual(1);
   });
 });
