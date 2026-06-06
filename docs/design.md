@@ -48,6 +48,7 @@ reqtrack/
 | GET | `/api/projects/:id` | プロジェクト取得 | US-001 |
 | POST | `/api/projects/:id/expand-reviews` | レビュー自動展開(機能ごとに PL レビュー) | US-014 |
 | POST | `/api/projects/:id/efficiency` | 効率化調整(負の工数 1 行) | US-014 |
+| GET | `/api/projects/:id/estimate.xlsx` | 見積 Excel(見積諸元+根拠/WBS/ガント) | US-016 |
 | GET | `/api/requirements?projectId=` | 要件一覧 | US-001 |
 | POST | `/api/requirements` | 要件登録 | US-001 |
 | DELETE | `/api/requirements/:id` | 要件削除 | US-001 |

@@ -3,6 +3,8 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { computeReviewTasks } from '../domain/review.js';
+import { buildEstimateWorkbook } from '../excel.js';
+import { toDateKey } from '../domain/schedule.js';
 
 // プロジェクト(案件)。要件・タスクの入れ物 (US-001 の前提)。
 export const projects = new Hono();
@@ -28,6 +30,47 @@ projects.get('/:id', async (c) => {
   const project = await prisma.project.findUnique({ where: { id } });
   if (!project) return c.json({ error: 'Not Found' }, 404);
   return c.json(project);
+});
+
+// 見積 Excel(.xlsx) エクスポート (US-016)。見積諸元+根拠 / WBS / ガント の 3 シート。
+projects.get('/:id/estimate.xlsx', async (c) => {
+  const projectId = c.req.param('id');
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) return c.json({ error: 'Not Found' }, 404);
+
+  const [taskRows, holidayRows] = await Promise.all([
+    prisma.task.findMany({ where: { projectId }, include: { assignee: true } }),
+    prisma.holiday.findMany(),
+  ]);
+
+  const wb = buildEstimateWorkbook({
+    projectName: project.name,
+    startDate: taskRows.find((t) => t.plannedStart)?.plannedStart?.toISOString().slice(0, 10) ?? null,
+    holidays: new Set(holidayRows.map((h) => toDateKey(h.date))),
+    tasks: taskRows.map((t) => ({
+      wbsId: t.wbsId,
+      name: t.name,
+      level: t.level,
+      phase: t.phase,
+      estimateDays: t.estimateDays,
+      utilizationRate: t.utilizationRate,
+      kind: t.kind,
+      assigneeName: t.assignee?.name ?? null,
+      estimateNote: t.estimateNote,
+      plannedStart: t.plannedStart,
+      plannedEnd: t.plannedEnd,
+      progress: t.progress,
+    })),
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const filename = `estimate_${projectId}.xlsx`;
+  return new Response(buffer, {
+    headers: {
+      'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'content-disposition': `attachment; filename="${filename}"`,
+    },
+  });
 });
 
 // レビュー自動展開 (US-014)。開発工程の後に PL レビューを機能ごとに自動挿入する。
