@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { buildGantt, dayLabel, isWeekend, overallProgress } from './gantt';
+import {
+  buildGantt,
+  dayLabel,
+  isWeekend,
+  overallProgress,
+  monthSpans,
+  phaseColor,
+  weekdayJa,
+  workloadByAssignee,
+} from './gantt';
 import type { Task } from '../api/client';
 
 function task(partial: Partial<Task> & { id: string }): Task {
@@ -62,6 +71,43 @@ describe('overallProgress', () => {
 
   it('タスクなしは0', () => {
     expect(overallProgress([])).toBe(0);
+  });
+});
+
+describe('US-015 helpers', () => {
+  it('monthSpans は連続日を月ごとにまとめる', () => {
+    const days = [
+      new Date('2026-06-29T00:00:00Z'),
+      new Date('2026-06-30T00:00:00Z'),
+      new Date('2026-07-01T00:00:00Z'),
+    ];
+    expect(monthSpans(days)).toEqual([
+      { label: '2026/6', span: 2 },
+      { label: '2026/7', span: 1 },
+    ]);
+  });
+
+  it('phaseColor は工程ごとに色を返し、未該当は既定色', () => {
+    expect(phaseColor('基本設計')).toBe('#a5d8ff');
+    expect(phaseColor('基本設計レビュー')).toBe('#fff3bf'); // レビュー優先
+    expect(phaseColor(null)).toBe('#ced4da');
+  });
+
+  it('weekdayJa は日本語曜日', () => {
+    expect(weekdayJa(new Date('2026-06-08T00:00:00Z'))).toBe('月');
+  });
+
+  it('workloadByAssignee は担当者別に集計し効率化を除外', () => {
+    const result = workloadByAssignee([
+      task({ id: 'a', estimateDays: 2, assignee: { id: 'm1', name: '山田', role: null, email: null, createdAt: '' } }),
+      task({ id: 'b', estimateDays: 1, assignee: { id: 'm1', name: '山田', role: null, email: null, createdAt: '' } }),
+      task({ id: 'c', estimateDays: -1, kind: 'efficiency' }),
+      task({ id: 'd', estimateDays: 0.5 }), // 未割当
+    ]);
+    expect(result).toEqual([
+      { name: '山田', days: 3 },
+      { name: '(未割当)', days: 0.5 },
+    ]);
   });
 });
 
