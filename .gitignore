@@ -42,3 +42,14 @@ coverage/
 playwright-report/
 test-results/
 /playwright/.cache/
+**/playwright-report/
+**/test-results/
+
+# SQLite / Prisma
+*.db
+*.db-journal
+backend/prisma/*.db
+backend/prisma/migrations/dev.db
+
+# MCP server configuration(contains GitHub PAT / Figma token; must not be committed)
+.mcp.json
