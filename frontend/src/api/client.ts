@@ -69,6 +69,7 @@ export interface Task {
   requirementId: string | null;
   name: string;
   estimateDays: number;
+  utilizationRate: number;
   plannedStart: string | null;
   plannedEnd: string | null;
   progress: number;
@@ -82,6 +83,7 @@ export interface CreateTaskInput {
   requirementId?: string;
   name: string;
   estimateDays?: number;
+  utilizationRate?: number;
   plannedStart?: string;
   plannedEnd?: string;
   assigneeId?: string;

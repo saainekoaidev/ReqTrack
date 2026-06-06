@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type Project, type Task } from '../api/client';
+import { effortHours, spanWorkingDays, round3 } from '../lib/estimate';
 
-// 見積画面 (US-003)。洗い出したタスクに工数(人日)の見積を設定する。
+// 見積画面 (US-003 / US-012)。工数(人日, 小数自由値)と稼働率を設定し、期間・時間を確認する。
+type Draft = { estimate: string; util: string };
+
 export default function EstimatePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,25 +28,37 @@ export default function EstimatePage() {
       .listTasks(projectId)
       .then((ts) => {
         setTasks(ts);
-        setDrafts(Object.fromEntries(ts.map((t) => [t.id, String(t.estimateDays)])));
+        setDrafts(
+          Object.fromEntries(
+            ts.map((t) => [
+              t.id,
+              { estimate: String(t.estimateDays), util: String(t.utilizationRate ?? 1) },
+            ]),
+          ),
+        );
       })
       .catch((e: unknown) => setError(toMessage(e)));
   }, [projectId]);
 
-  const total = useMemo(
-    () => tasks.reduce((sum, t) => sum + (t.estimateDays || 0), 0),
-    [tasks],
-  );
+  const total = useMemo(() => round3(tasks.reduce((sum, t) => sum + (t.estimateDays || 0), 0)), [tasks]);
 
   async function save(taskId: string) {
-    const raw = drafts[taskId] ?? '0';
-    const value = Number(raw);
-    if (Number.isNaN(value) || value < 0) {
+    const draft = drafts[taskId] ?? { estimate: '0', util: '1' };
+    const estimateDays = Number(draft.estimate);
+    const utilizationRate = Number(draft.util);
+    if (Number.isNaN(estimateDays) || estimateDays < 0) {
       setError('見積は 0 以上の数値を入力してください');
       return;
     }
+    if (Number.isNaN(utilizationRate) || utilizationRate <= 0 || utilizationRate > 1) {
+      setError('稼働率は 0 より大きく 1 以下で入力してください (例: 0.75)');
+      return;
+    }
     try {
-      const updated = await api.updateTask(taskId, { estimateDays: value });
+      const updated = await api.updateTask(taskId, {
+        estimateDays: round3(estimateDays),
+        utilizationRate,
+      });
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
       setError(null);
     } catch (e) {
@@ -72,6 +87,9 @@ export default function EstimatePage() {
             ))}
           </select>
         </label>
+        <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
+          工数は人日(小数自由)。稼働率で実作業量と期間が変わります(期間 = 工数 ÷ 稼働率、1日 = 8時間)。
+        </p>
       </div>
 
       <div className="card">
@@ -83,37 +101,63 @@ export default function EstimatePage() {
             <thead>
               <tr>
                 <th>タスク</th>
-                <th>見積(人日)</th>
+                <th>工数(人日)</th>
+                <th>稼働率</th>
+                <th>時間</th>
+                <th>期間(営業日)</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {tasks.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.name}</td>
-                  <td>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      aria-label={`${t.name} の見積`}
-                      value={drafts[t.id] ?? ''}
-                      onChange={(e) => setDrafts((d) => ({ ...d, [t.id]: e.target.value }))}
-                      style={{ width: '6rem' }}
-                    />
-                  </td>
-                  <td>
-                    <button type="button" onClick={() => save(t.id)}>
-                      保存
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {tasks.map((t) => {
+                const d = drafts[t.id] ?? { estimate: '0', util: '1' };
+                const est = Number(d.estimate) || 0;
+                const util = Number(d.util) || 1;
+                return (
+                  <tr key={t.id}>
+                    <td>{t.name}</td>
+                    <td>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.001}
+                        aria-label={`${t.name} の工数`}
+                        value={d.estimate}
+                        onChange={(e) =>
+                          setDrafts((s) => ({ ...s, [t.id]: { ...d, estimate: e.target.value } }))
+                        }
+                        style={{ width: '6rem' }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min={0.05}
+                        max={1}
+                        step={0.05}
+                        aria-label={`${t.name} の稼働率`}
+                        value={d.util}
+                        onChange={(e) =>
+                          setDrafts((s) => ({ ...s, [t.id]: { ...d, util: e.target.value } }))
+                        }
+                        style={{ width: '5rem' }}
+                      />
+                    </td>
+                    <td>{effortHours(est)} h</td>
+                    <td>{spanWorkingDays(est, util)} 日</td>
+                    <td>
+                      <button type="button" onClick={() => save(t.id)}>
+                        保存
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
             <tfoot>
               <tr>
                 <th>合計</th>
-                <td colSpan={2}>{total} 人日</td>
+                <td colSpan={5}>{total} 人日</td>
               </tr>
             </tfoot>
           </table>

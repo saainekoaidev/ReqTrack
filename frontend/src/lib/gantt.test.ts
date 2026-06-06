@@ -8,6 +8,7 @@ function task(partial: Partial<Task> & { id: string }): Task {
     requirementId: null,
     name: partial.id,
     estimateDays: 0,
+    utilizationRate: 1,
     plannedStart: null,
     plannedEnd: null,
     progress: 0,

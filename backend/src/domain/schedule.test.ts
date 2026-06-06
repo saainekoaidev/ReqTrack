@@ -4,6 +4,8 @@ import {
   detectDelay,
   delayedMembers,
   scheduleTasks,
+  spanWorkingDays,
+  normalizeUtilization,
   isWorkingDay,
   nextWorkingDay,
   toDateKey,
@@ -68,6 +70,31 @@ describe('isWorkingDay / nextWorkingDay', () => {
   it('土曜の次の稼働日は月曜', () => {
     const d = nextWorkingDay(new Date('2026-06-06T00:00:00Z'), noHoliday);
     expect(toDateKey(d)).toBe('2026-06-08');
+  });
+});
+
+describe('spanWorkingDays / normalizeUtilization (US-012 稼働率)', () => {
+  it('期間 = ceil(工数 ÷ 稼働率)', () => {
+    expect(spanWorkingDays(3, 1)).toBe(3); // 専従3人日 → 3営業日
+    expect(spanWorkingDays(0.6, 0.2)).toBe(3); // 20% → 3営業日
+    expect(spanWorkingDays(3, 0.75)).toBe(4); // 2.25日 → 切上げ4営業日
+    expect(spanWorkingDays(0, 1)).toBe(1); // 最低1
+  });
+  it('稼働率は 0<r<=1 に正規化', () => {
+    expect(normalizeUtilization(undefined)).toBe(1);
+    expect(normalizeUtilization(0)).toBe(1);
+    expect(normalizeUtilization(2)).toBe(1);
+    expect(normalizeUtilization(0.5)).toBe(0.5);
+  });
+});
+
+describe('scheduleTasks (稼働率反映)', () => {
+  it('稼働率20%のタスクは期間が伸びる', () => {
+    const start = new Date('2026-06-08T00:00:00Z'); // Mon
+    // 0.6人日 ÷ 0.2 = 3営業日 → Mon-Wed
+    const r = scheduleTasks([{ id: 'a', estimateDays: 0.6, utilizationRate: 0.2 }], start);
+    expect(toDateKey(r[0]!.plannedStart)).toBe('2026-06-08');
+    expect(toDateKey(r[0]!.plannedEnd)).toBe('2026-06-10');
   });
 });
 

@@ -19,6 +19,7 @@ const taskInput = z.object({
   requirementId: z.string().min(1).optional(),
   name: z.string().min(1),
   estimateDays: z.number().nonnegative().optional(),
+  utilizationRate: z.number().gt(0).max(1).optional(),
   plannedStart: z.string().datetime().optional(),
   plannedEnd: z.string().datetime().optional(),
   assigneeId: z.string().min(1).optional(),
@@ -51,6 +52,7 @@ tasks.post('/', zValidator('json', taskInput), async (c) => {
       requirementId: v.requirementId,
       name: v.name,
       estimateDays: v.estimateDays ?? 0,
+      utilizationRate: v.utilizationRate ?? 1,
       plannedStart: v.plannedStart ? new Date(v.plannedStart) : undefined,
       plannedEnd: v.plannedEnd ? new Date(v.plannedEnd) : undefined,
       assigneeId: v.assigneeId,
@@ -63,6 +65,7 @@ tasks.post('/', zValidator('json', taskInput), async (c) => {
 const taskPatch = z.object({
   name: z.string().min(1).optional(),
   estimateDays: z.number().nonnegative().optional(),
+  utilizationRate: z.number().gt(0).max(1).optional(),
   plannedStart: z.string().datetime().nullable().optional(),
   plannedEnd: z.string().datetime().nullable().optional(),
   assigneeId: z.string().min(1).nullable().optional(),
@@ -77,6 +80,7 @@ tasks.patch('/:id', zValidator('json', taskPatch), async (c) => {
     data: {
       name: v.name,
       estimateDays: v.estimateDays,
+      utilizationRate: v.utilizationRate,
       plannedStart:
         v.plannedStart === undefined ? undefined : v.plannedStart ? new Date(v.plannedStart) : null,
       plannedEnd:
@@ -103,7 +107,11 @@ tasks.post('/schedule', zValidator('json', scheduleInput), async (c) => {
   ]);
   const holidays = new Set(holidayRows.map((h) => toDateKey(h.date)));
   const scheduled = scheduleTasks(
-    projectTasks.map((t) => ({ id: t.id, estimateDays: t.estimateDays })),
+    projectTasks.map((t) => ({
+      id: t.id,
+      estimateDays: t.estimateDays,
+      utilizationRate: t.utilizationRate,
+    })),
     new Date(`${startDate}T00:00:00.000Z`),
     holidays,
   );
