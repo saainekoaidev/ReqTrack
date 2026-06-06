@@ -85,6 +85,105 @@ function clampPercent(n: number): number {
   return Math.min(100, Math.max(0, Math.round(n)));
 }
 
+// ---- リカバリプラン (US-011) ----
+
+export interface RecoveryTask {
+  id: string;
+  name: string;
+  estimateDays: number;
+  assigneeName: string | null;
+  plannedStart: Date | null;
+  plannedEnd: Date | null;
+  progress: number;
+}
+
+export type Severity = 'high' | 'medium' | 'low';
+
+export interface RecoveryAction {
+  taskId: string;
+  taskName: string;
+  severity: Severity;
+  behindBy: number;
+  /** 残作業の概算(人日) = 見積 × 残進捗率 */
+  remainingDays: number;
+  suggestions: string[];
+}
+
+export interface RecoveryPlan {
+  delayedCount: number;
+  totalRemainingDays: number;
+  actions: RecoveryAction[];
+}
+
+function severityOf(behindBy: number): Severity {
+  if (behindBy >= 50) return 'high';
+  if (behindBy >= 20) return 'medium';
+  return 'low';
+}
+
+/**
+ * 遅延タスクからリカバリプラン案を生成する (US-011)。
+ * 遅れ量・残作業・担当の有無から、決め打ちのヒューリスティックで挽回策を提示する。
+ */
+export function buildRecoveryPlan(
+  tasks: RecoveryTask[],
+  now: Date,
+  thresholdPct = 0,
+): RecoveryPlan {
+  const actions: RecoveryAction[] = [];
+
+  for (const task of tasks) {
+    const delay = detectDelay(
+      {
+        id: task.id,
+        name: task.name,
+        assigneeId: task.assigneeName ? 'x' : null,
+        plannedStart: task.plannedStart,
+        plannedEnd: task.plannedEnd,
+        progress: task.progress,
+      },
+      now,
+      thresholdPct,
+    );
+    if (!delay.isDelayed) continue;
+
+    const remainingDays =
+      Math.round(task.estimateDays * ((100 - delay.actualProgress) / 100) * 10) / 10;
+    const severity = severityOf(delay.behindBy);
+    const suggestions: string[] = [];
+
+    if (!task.assigneeName) {
+      suggestions.push('担当者が未割当。まず要員を割り当てる');
+    }
+    if (severity === 'high') {
+      suggestions.push('重度の遅延。応援要員の追加投入とスコープ(優先度)の見直しを検討する');
+      suggestions.push('後続タスクへの影響が大きいため、関係者へ早期にエスカレーションする');
+    } else if (severity === 'medium') {
+      suggestions.push('中度の遅延。応援要員のアサインまたは短期の残業計画で挽回する');
+    } else {
+      suggestions.push('軽微な遅延。日次で進捗を確認し早期に巻き返す');
+    }
+    if (remainingDays > 0) {
+      suggestions.push(`残作業は約 ${remainingDays} 人日。並行作業で分担すると短縮できる`);
+    }
+
+    actions.push({
+      taskId: task.id,
+      taskName: task.name,
+      severity,
+      behindBy: delay.behindBy,
+      remainingDays,
+      suggestions,
+    });
+  }
+
+  actions.sort((a, b) => b.behindBy - a.behindBy);
+  const totalRemainingDays =
+    Math.round(actions.reduce((s, a) => s + a.remainingDays, 0) * 10) / 10;
+
+  return { delayedCount: actions.length, totalRemainingDays, actions };
+}
+
 // ---- ガント初版のスケジューリング (US-004) ----
 
 const DAY_MS = 24 * 60 * 60 * 1000;

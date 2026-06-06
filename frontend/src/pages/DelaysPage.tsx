@@ -1,12 +1,25 @@
 import { useEffect, useState } from 'react';
-import { api, type DelayItem, type DelayedMember, type Project } from '../api/client';
+import {
+  api,
+  type DelayItem,
+  type DelayedMember,
+  type Project,
+  type RecoveryPlan,
+} from '../api/client';
 
-// 遅延ダッシュボード (US-009 遅れ検出 / US-010 遅れ要員)。
+// 遅延ダッシュボード (US-009 遅れ検出 / US-010 遅れ要員 / US-011 リカバリプラン)。
+const severityLabel: Record<RecoveryPlan['actions'][number]['severity'], string> = {
+  high: '重度',
+  medium: '中度',
+  low: '軽微',
+};
+
 export default function DelaysPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [delays, setDelays] = useState<DelayItem[]>([]);
   const [delayedMembers, setDelayedMembers] = useState<DelayedMember[]>([]);
+  const [recovery, setRecovery] = useState<RecoveryPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,6 +41,10 @@ export default function DelaysPage() {
     api
       .getDelayedMembers(projectId)
       .then(setDelayedMembers)
+      .catch((e: unknown) => setError(toMessage(e)));
+    api
+      .getRecoveryPlan(projectId)
+      .then(setRecovery)
       .catch((e: unknown) => setError(toMessage(e)));
   }, [projectId]);
 
@@ -100,6 +117,33 @@ export default function DelaysPage() {
               </li>
             ))}
           </ul>
+        )}
+      </div>
+
+      <div className="card">
+        <h3>リカバリプラン案</h3>
+        {!recovery || recovery.actions.length === 0 ? (
+          <p className="muted">遅延がないため、リカバリプランは不要です。</p>
+        ) : (
+          <>
+            <p className="muted">
+              遅延 {recovery.delayedCount} 件 / 残作業 合計 約 {recovery.totalRemainingDays} 人日
+            </p>
+            {recovery.actions.map((a) => (
+              <div key={a.taskId} className="recovery-item">
+                <h4>
+                  <span className={`badge badge-${a.severity}`}>{severityLabel[a.severity]}</span>{' '}
+                  {a.taskName}
+                  <span className="muted">（遅れ {a.behindBy}% / 残 約 {a.remainingDays} 人日）</span>
+                </h4>
+                <ul>
+                  {a.suggestions.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </section>

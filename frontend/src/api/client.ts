@@ -48,6 +48,21 @@ export interface DelayedMember {
   taskIds: string[];
 }
 
+export interface RecoveryAction {
+  taskId: string;
+  taskName: string;
+  severity: 'high' | 'medium' | 'low';
+  behindBy: number;
+  remainingDays: number;
+  suggestions: string[];
+}
+
+export interface RecoveryPlan {
+  delayedCount: number;
+  totalRemainingDays: number;
+  actions: RecoveryAction[];
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -138,5 +153,10 @@ export const api = {
   getDelayedMembers: (projectId?: string) =>
     request<DelayedMember[]>(
       `/api/tasks/delays/members${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
+    ),
+  // リカバリプラン (US-011)
+  getRecoveryPlan: (projectId?: string) =>
+    request<RecoveryPlan>(
+      `/api/tasks/recovery${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`,
     ),
 };

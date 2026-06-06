@@ -60,8 +60,9 @@ reqtrack/
 | PATCH | `/api/tasks/:id` | タスク部分更新(見積/計画日/担当/進捗) | US-003 |
 | POST | `/api/tasks/schedule` | ガント初版生成(稼働日割付) | US-004 |
 | POST | `/api/tasks/:id/reports` | 進捗報告→進捗率反映 | US-007, US-008 |
-| GET | `/api/tasks/delays` | 遅延タスク検出 | US-009 |
-| GET | `/api/tasks/delays/members` | 遅れ要員の洗い出し | US-010 |
+| GET | `/api/tasks/delays?projectId=` | 遅延タスク検出 | US-009 |
+| GET | `/api/tasks/delays/members?projectId=` | 遅れ要員の洗い出し | US-010 |
+| GET | `/api/tasks/recovery?projectId=` | リカバリプラン案生成 | US-011 |
 
 > 上流の要件→タスク自動洗い出し/見積/ガント初版生成 (US-001〜004 の自動化) と、リカバリプラン提示 (US-011) は、本初期構成では CRUD/検出 API までを用意し、AI 生成ロジックは後続 US で実装する。
 
