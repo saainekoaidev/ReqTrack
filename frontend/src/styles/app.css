@@ -185,6 +185,25 @@ button:disabled {
   border-color: var(--color-danger);
 }
 
+.progress-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progress-track {
+  flex: 1;
+  height: 14px;
+  background: var(--color-border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+}
+
 /* Gantt (US-004 / US-008) */
 .gantt-card {
   overflow-x: auto;

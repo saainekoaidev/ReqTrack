@@ -48,12 +48,17 @@ export default function GanttChart({ tasks }: { tasks: Task[] }) {
           ))}
           <div
             className="gantt-bar"
+            title={`${row.task.name}: 進捗 ${row.task.progress}%`}
             style={{
               gridColumn: `${row.startOffset + 2} / span ${row.duration}`,
               gridRow: 1,
             }}
           >
-            <span className="gantt-bar-progress" style={{ width: `${row.task.progress}%` }} />
+            <span
+              className="gantt-bar-progress"
+              data-testid={`progress-${row.task.id}`}
+              style={{ width: `${row.task.progress}%` }}
+            />
             <span className="gantt-bar-label">{row.task.progress}%</span>
           </div>
         </div>
