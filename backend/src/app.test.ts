@@ -79,3 +79,14 @@ describe('POST /api/tasks バリデーション', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('PATCH /api/tasks/:id バリデーション', () => {
+  it('estimateDays が負だと 400', async () => {
+    const res = await app.request('/api/tasks/t1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ estimateDays: -1 }),
+    });
+    expect(res.status).toBe(400);
+  });
+});

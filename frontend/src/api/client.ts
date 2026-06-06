@@ -83,4 +83,6 @@ export const api = {
     request<Task[]>(`/api/tasks${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
   createTask: (input: CreateTaskInput) =>
     request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  updateTask: (id: string, patch: Partial<Omit<CreateTaskInput, 'projectId'>> & { progress?: number }) =>
+    request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
 };

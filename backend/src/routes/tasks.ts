@@ -52,6 +52,36 @@ tasks.post('/', zValidator('json', taskInput), async (c) => {
   return c.json(created, 201);
 });
 
+// タスクの部分更新 (US-003 見積 / US-004 計画日 / 担当割当)
+const taskPatch = z.object({
+  name: z.string().min(1).optional(),
+  estimateDays: z.number().nonnegative().optional(),
+  plannedStart: z.string().datetime().nullable().optional(),
+  plannedEnd: z.string().datetime().nullable().optional(),
+  assigneeId: z.string().min(1).nullable().optional(),
+  progress: z.number().int().min(0).max(100).optional(),
+});
+
+tasks.patch('/:id', zValidator('json', taskPatch), async (c) => {
+  const id = c.req.param('id');
+  const v = c.req.valid('json');
+  const updated = await prisma.task.update({
+    where: { id },
+    data: {
+      name: v.name,
+      estimateDays: v.estimateDays,
+      plannedStart:
+        v.plannedStart === undefined ? undefined : v.plannedStart ? new Date(v.plannedStart) : null,
+      plannedEnd:
+        v.plannedEnd === undefined ? undefined : v.plannedEnd ? new Date(v.plannedEnd) : null,
+      assigneeId: v.assigneeId,
+      progress: v.progress,
+    },
+    include: { assignee: true, requirement: true },
+  });
+  return c.json(updated);
+});
+
 // 進捗報告を登録し、タスクの進捗率へ反映する (US-007 → US-008)
 tasks.post('/:id/reports', zValidator('json', reportInput), async (c) => {
   const taskId = c.req.param('id');
