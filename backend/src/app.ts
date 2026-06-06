@@ -1,0 +1,33 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
+import { members } from './routes/members.js';
+import { holidays } from './routes/holidays.js';
+import { tasks } from './routes/tasks.js';
+
+// アプリ生成を関数化してテスト(app.request)から再利用できるようにする。
+export function createApp() {
+  const app = new Hono();
+
+  app.use('*', cors());
+
+  app.get('/api/health', (c) => c.json({ status: 'ok' }));
+
+  app.route('/api/members', members);
+  app.route('/api/holidays', holidays);
+  app.route('/api/tasks', tasks);
+
+  app.notFound((c) => c.json({ error: 'Not Found' }, 404));
+
+  app.onError((err, c) => {
+    if (err instanceof HTTPException) {
+      return c.json({ error: err.message }, err.status);
+    }
+    console.error(err);
+    return c.json({ error: 'Internal Server Error' }, 500);
+  });
+
+  return app;
+}
+
+export const app = createApp();

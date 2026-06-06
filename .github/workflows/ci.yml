@@ -1,7 +1,7 @@
 name: CI
 
-# 雛形 CI workflow。stack 確定後に install / build / test / e2e ステップを埋める。
-# 詳細は WG05 の参考実装を参照: https://github.com/saainekoaidev/wg05-sandbox/blob/main/.github/workflows/ci.yml
+# Node.js + pnpm monorepo (frontend: React+Vite+TS / backend: Hono+Prisma+SQLite)。
+# 構成の根拠は docs/adr/0002-stack-and-architecture.md を参照。
 
 on:
   push:
@@ -15,8 +15,44 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  test:
-    name: build + unit + e2e
+  build-test:
+    name: build + typecheck + unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: "file:./dev.db"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        # バージョンは package.json の packageManager に従う(version 指定との二重指定を避ける)
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @reqtrack/backend db:generate
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Unit tests (Vitest)
+        run: pnpm -r test
+
+  e2e:
+    name: e2e (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -24,26 +60,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # TODO: スタックに応じて以下を埋める。
-      # 例 (Node.js + pnpm):
-      # - name: Setup pnpm
-      #   uses: pnpm/action-setup@v4
-      #   with:
-      #     version: 10
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version-file: .nvmrc
-      #     cache: pnpm
-      # - name: Install dependencies
-      #   run: pnpm install --frozen-lockfile
-      # - name: Build
-      #   run: pnpm -r build
-      # - name: Unit tests
-      #   run: pnpm -r test
+      - name: Setup pnpm
+        # バージョンは package.json の packageManager に従う(version 指定との二重指定を避ける)
+        uses: pnpm/action-setup@v4
 
-      - name: Placeholder (replace this with stack-specific steps)
-        run: |
-          echo "CI workflow not yet configured."
-          echo "See README.md and replace TODO blocks in .github/workflows/ci.yml"
-          exit 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @reqtrack/frontend exec playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: pnpm --filter @reqtrack/frontend e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
