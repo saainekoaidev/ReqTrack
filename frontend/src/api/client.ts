@@ -106,4 +106,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ projectId, startDate }),
     }),
+  // 進捗報告 (US-007 → 進捗率反映 US-008)
+  addReport: (taskId: string, input: { memberId: string; progress: number; comment?: string }) =>
+    request<unknown>(`/api/tasks/${taskId}/reports`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 };
