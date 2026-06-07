@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // E2E は e2e/ 配下のみ。Vite dev server を自動起動して検証する。
 // backend 未起動でも画面は描画され API エラー表示になる(初期構成の最小 E2E)。
 // ポートは E2E_PORT で上書き可能(他プロジェクトと衝突する場合に変更する)。
-const port = Number(process.env.E2E_PORT ?? 5173);
+const port = Number(process.env.E2E_PORT ?? 5174);
 const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({

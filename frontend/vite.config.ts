@@ -5,11 +5,13 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    // DGMS(5173) と衝突しないよう 5174 を使用
+    port: 5174,
+    strictPort: true,
     // 開発時は /api を backend (Hono) へプロキシし、CORS/URL 差異を吸収する。
     proxy: {
       '/api': {
-        target: process.env.VITE_API_TARGET ?? 'http://localhost:8787',
+        target: process.env.VITE_API_TARGET ?? 'http://localhost:8788',
         changeOrigin: true,
       },
     },

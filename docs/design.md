@@ -20,7 +20,8 @@ reqtrack/
 ```
 
 - 主要技術スタック: React, Vite, TypeScript / Hono, Prisma, SQLite / Vitest, Playwright / GitHub Actions。
-- dev 時は frontend (`:5173`) が `/api` を backend (`:8787`) へ Vite proxy で転送する。
+- dev 時は frontend (`:5174`) が `/api` を backend (`:8788`) へ Vite proxy で転送する。
+  - ポートは DGMS(`:5173` / `:8787`)と衝突しないよう **5174 / 8788** を採用。起動は `tools/launch-reqtrack.ps1`(デスクトップショートカットから)。
 
 ## 2. データモデル
 
