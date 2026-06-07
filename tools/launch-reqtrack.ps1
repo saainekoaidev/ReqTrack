@@ -22,6 +22,20 @@ if (-not (Test-Path "$repoRoot\node_modules")) {
     pnpm install
 }
 
+# backend/.env が無いと Prisma が DATABASE_URL を解決できず, migrate も実行時接続も
+# 失敗して画面が 500 になる。無ければ .env.example から生成する。
+$backendEnv = Join-Path $repoRoot "backend\.env"
+$backendEnvExample = Join-Path $repoRoot "backend\.env.example"
+if (-not (Test-Path $backendEnv)) {
+    if (Test-Path $backendEnvExample) {
+        Copy-Item $backendEnvExample $backendEnv
+        Write-Host "[reqtrack] created backend\.env from .env.example" -ForegroundColor Yellow
+    } else {
+        Set-Content -Path $backendEnv -Value @('DATABASE_URL="file:./dev.db"', 'PORT=8788') -Encoding utf8
+        Write-Host "[reqtrack] created default backend\.env" -ForegroundColor Yellow
+    }
+}
+
 # backend は dev.db の migration が必要 (CI と同じ)。
 # 毎回 migrate deploy を走らせる: 初回は dev.db を作成し全 migration を適用,
 # 2 回目以降は pending な migration だけを適用する (idempotent)。
