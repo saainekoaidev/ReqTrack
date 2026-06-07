@@ -76,6 +76,8 @@ model Member {
   name      String
   role      String?
   email     String?          @unique
+  // 単価(円/時) (US-028)。工賃概算 = 人日 × 1日の作業時間 × 単価
+  hourlyRate Float?
   createdAt DateTime         @default(now())
   tasks     Task[]
   reports   ProgressReport[]

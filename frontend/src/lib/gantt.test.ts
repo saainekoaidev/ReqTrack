@@ -97,16 +97,20 @@ describe('US-015 helpers', () => {
     expect(weekdayJa(new Date('2026-06-08T00:00:00Z'))).toBe('月');
   });
 
-  it('workloadByAssignee は担当者別に集計し効率化を除外', () => {
-    const result = workloadByAssignee([
-      task({ id: 'a', estimateDays: 2, assignee: { id: 'm1', name: '山田', role: null, email: null, createdAt: '' } }),
-      task({ id: 'b', estimateDays: 1, assignee: { id: 'm1', name: '山田', role: null, email: null, createdAt: '' } }),
-      task({ id: 'c', estimateDays: -1, kind: 'efficiency' }),
-      task({ id: 'd', estimateDays: 0.5 }), // 未割当
-    ]);
+  it('workloadByAssignee は担当者別に集計し効率化を除外、単価から工賃も算出', () => {
+    const yamada = { id: 'm1', name: '山田', role: null, email: null, hourlyRate: 1000, createdAt: '' };
+    const result = workloadByAssignee(
+      [
+        task({ id: 'a', estimateDays: 2, assignee: yamada }),
+        task({ id: 'b', estimateDays: 1, assignee: yamada }),
+        task({ id: 'c', estimateDays: -1, kind: 'efficiency' }),
+        task({ id: 'd', estimateDays: 0.5 }), // 未割当
+      ],
+      8,
+    );
     expect(result).toEqual([
-      { name: '山田', days: 3 },
-      { name: '(未割当)', days: 0.5 },
+      { name: '山田', days: 3, cost: 24000 }, // 3人日 × 8h × 1000円
+      { name: '(未割当)', days: 0.5, cost: null },
     ]);
   });
 });

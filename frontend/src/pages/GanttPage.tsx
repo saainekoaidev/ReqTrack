@@ -9,17 +9,19 @@ export default function GanttPage() {
   const { projectId } = useProject();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
+  const [hoursPerDay, setHoursPerDay] = useState(8);
   const [startDate, setStartDate] = useState('2026-06-08');
   const [error, setError] = useState<string | null>(null);
 
   const overall = useMemo(() => overallProgress(tasks), [tasks]);
-  const workload = useMemo(() => workloadByAssignee(tasks), [tasks]);
+  const workload = useMemo(() => workloadByAssignee(tasks, hoursPerDay), [tasks, hoursPerDay]);
 
   useEffect(() => {
     api
       .listHolidays()
       .then((hs) => setHolidays(new Set(hs.map((h) => h.date.slice(0, 10)))))
       .catch(() => {});
+    api.getSettings().then((s) => setHoursPerDay(s.hoursPerDay)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -97,12 +99,13 @@ export default function GanttPage() {
 
       {workload.length > 0 && (
         <div className="card">
-          <h3>担当者別工数</h3>
+          <h3>担当者別工数・工賃</h3>
           <table className="data-table">
             <thead>
               <tr>
                 <th>担当者</th>
                 <th>工数(人日)</th>
+                <th>工賃概算(円)</th>
               </tr>
             </thead>
             <tbody>
@@ -110,10 +113,12 @@ export default function GanttPage() {
                 <tr key={w.name}>
                   <td>{w.name}</td>
                   <td>{w.days}</td>
+                  <td>{w.cost != null ? w.cost.toLocaleString() : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <p className="muted">工賃概算 = 工数(人日) × 1日の作業時間({hoursPerDay}h) × 単価(設定&gt;要員)。</p>
         </div>
       )}
     </section>

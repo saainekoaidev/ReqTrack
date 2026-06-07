@@ -7,6 +7,7 @@ export default function MembersPanel() {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [email, setEmail] = useState('');
+  const [rate, setRate] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,11 +22,13 @@ export default function MembersPanel() {
         name: name.trim(),
         role: role.trim() || undefined,
         email: email.trim() || undefined,
+        hourlyRate: rate.trim() ? Number(rate) : undefined,
       });
       setMembers((p) => [...p, m]);
       setName('');
       setRole('');
       setEmail('');
+      setRate('');
       setError(null);
     } catch (e) {
       setError(msg(e));
@@ -59,6 +62,9 @@ export default function MembersPanel() {
                 {m.name}
                 {m.role ? `（${m.role}）` : ''}
                 {m.email ? <span className="muted"> {m.email}</span> : null}
+                {m.hourlyRate != null ? (
+                  <span className="muted"> {m.hourlyRate.toLocaleString()} 円/時</span>
+                ) : null}
               </span>
               <button type="button" className="btn-danger" onClick={() => remove(m.id)}>
                 削除
@@ -71,6 +77,7 @@ export default function MembersPanel() {
         <input type="text" placeholder="氏名" aria-label="要員氏名" value={name} onChange={(e) => setName(e.target.value)} />
         <input type="text" placeholder="役割 (任意, 例: PL)" aria-label="役割" value={role} onChange={(e) => setRole(e.target.value)} />
         <input type="email" placeholder="メール (任意)" aria-label="メール" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="number" min={0} step={100} placeholder="単価 円/時 (任意)" aria-label="単価(円/時)" value={rate} onChange={(e) => setRate(e.target.value)} style={{ width: '9rem' }} />
         <button type="submit">要員を登録</button>
       </form>
     </div>
