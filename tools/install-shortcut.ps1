@@ -1,4 +1,4 @@
-# ReqTrack デスクトップショートカットインストーラ。
+﻿# ReqTrack デスクトップショートカットインストーラ。
 # 実行するとユーザのデスクトップに「ReqTrack.lnk」を作成する。
 # ショートカットからは tools/launch-reqtrack.ps1 が PowerShell で起動される。
 

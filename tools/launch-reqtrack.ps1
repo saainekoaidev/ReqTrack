@@ -1,4 +1,4 @@
-# ReqTrack launcher.
+﻿# ReqTrack launcher.
 # 起動するとリポジトリ直下に移動し, `pnpm dev` で backend + frontend を並列起動する。
 # 数秒後に既定ブラウザで http://localhost:5174 を開く。
 # このウィンドウを閉じると両サーバが停止する。
