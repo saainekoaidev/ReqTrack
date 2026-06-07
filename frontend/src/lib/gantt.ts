@@ -134,16 +134,34 @@ export function phaseLegend(): { label: string; color: string }[] {
   ];
 }
 
-/** 担当者別の工数(人日)集計。効率化(負/集約行)は除外。 (US-015) */
-export function workloadByAssignee(tasks: Task[]): { name: string; days: number }[] {
-  const map = new Map<string, number>();
+/**
+ * 担当者別の工数(人日)集計。効率化(負/集約行)は除外。 (US-015)
+ * hoursPerDay を渡すと単価(円/時)から工賃概算 cost も算出する (US-028)。
+ * cost = Σ(人日 × hoursPerDay × 単価)。単価未設定の要員は cost 0。
+ */
+export function workloadByAssignee(
+  tasks: Task[],
+  hoursPerDay?: number,
+): { name: string; days: number; cost: number | null }[] {
+  const agg = new Map<string, { days: number; cost: number; hasRate: boolean }>();
   for (const t of tasks) {
     if (t.kind === 'efficiency') continue;
     if (!t.estimateDays || t.estimateDays <= 0) continue;
     const name = t.assignee?.name ?? '(未割当)';
-    map.set(name, (map.get(name) ?? 0) + t.estimateDays);
+    const rate = t.assignee?.hourlyRate ?? null;
+    const cur = agg.get(name) ?? { days: 0, cost: 0, hasRate: false };
+    cur.days += t.estimateDays;
+    if (hoursPerDay && rate != null) {
+      cur.cost += t.estimateDays * hoursPerDay * rate;
+      cur.hasRate = true;
+    }
+    agg.set(name, cur);
   }
-  return [...map.entries()]
-    .map(([name, days]) => ({ name, days: Math.round(days * 1000) / 1000 }))
+  return [...agg.entries()]
+    .map(([name, v]) => ({
+      name,
+      days: Math.round(v.days * 1000) / 1000,
+      cost: v.hasRate ? Math.round(v.cost) : null,
+    }))
     .sort((a, b) => b.days - a.days);
 }

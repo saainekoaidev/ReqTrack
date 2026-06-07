@@ -10,6 +10,7 @@ const memberInput = z.object({
   name: z.string().min(1),
   role: z.string().min(1).optional(),
   email: z.string().email().optional(),
+  hourlyRate: z.number().nonnegative().optional(),
 });
 
 members.get('/', async (c) => {

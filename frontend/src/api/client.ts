@@ -56,6 +56,7 @@ export interface Member {
   name: string;
   role: string | null;
   email: string | null;
+  hourlyRate: number | null;
   createdAt: string;
 }
 
@@ -206,7 +207,7 @@ export const api = {
 
   // members (US-005)
   listMembers: () => request<Member[]>('/api/members'),
-  createMember: (input: { name: string; role?: string; email?: string }) =>
+  createMember: (input: { name: string; role?: string; email?: string; hourlyRate?: number }) =>
     request<Member>('/api/members', { method: 'POST', body: JSON.stringify(input) }),
   deleteMember: (id: string) => request<void>(`/api/members/${id}`, { method: 'DELETE' }),
 
