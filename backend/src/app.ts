@@ -7,6 +7,7 @@ import { tasks } from './routes/tasks.js';
 import { projects } from './routes/projects.js';
 import { requirements } from './routes/requirements.js';
 import { dailyReports } from './routes/dailyReports.js';
+import { referenceProjects } from './routes/referenceProjects.js';
 
 // アプリ生成を関数化してテスト(app.request)から再利用できるようにする。
 export function createApp() {
@@ -19,6 +20,7 @@ export function createApp() {
   app.route('/api/projects', projects);
   app.route('/api/requirements', requirements);
   app.route('/api/daily-reports', dailyReports);
+  app.route('/api/reference-projects', referenceProjects);
   app.route('/api/members', members);
   app.route('/api/holidays', holidays);
   app.route('/api/tasks', tasks);

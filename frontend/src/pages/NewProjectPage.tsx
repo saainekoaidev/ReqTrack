@@ -1,21 +1,36 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, type ReferenceProject } from '../api/client';
 
-// 新規プロジェクト (US-020)。名称を入力し、起点(見積から / ガントから)を選んで開始する。
+// 新規プロジェクト (US-020 / US-024)。名称・案件区分(新規/既存)を選び、起点を選んで開始する。
 export default function NewProjectPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [kind, setKind] = useState<'new' | 'existing'>('new');
+  const [referenceProjectId, setReferenceProjectId] = useState('');
+  const [refProjects, setRefProjects] = useState<ReferenceProject[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    api.listReferenceProjects().then(setRefProjects).catch(() => {});
+  }, []);
+
   async function start(mode: 'estimate' | 'gantt') {
     if (!name.trim() || busy) return;
+    if (kind === 'existing' && !referenceProjectId) {
+      setError('既存案件では参照資料プロジェクトを選択してください(設定 > 参照資料 で登録)');
+      return;
+    }
     setBusy(true);
     try {
-      const p = await api.createProject({ name: name.trim(), description: description.trim() || undefined });
-      // 見積から → 取込画面 / ガントから → WBS 編集画面
+      const p = await api.createProject({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        kind,
+        referenceProjectId: kind === 'existing' ? referenceProjectId : undefined,
+      });
       navigate(mode === 'estimate' ? `/create/import?projectId=${p.id}` : `/create/wbs?projectId=${p.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -53,6 +68,42 @@ export default function NewProjectPage() {
             style={{ width: '60%' }}
           />
         </label>
+
+        <fieldset style={{ marginTop: 'var(--space-3)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)' }}>
+          <legend>案件区分</legend>
+          <label style={{ marginRight: 'var(--space-3)' }}>
+            <input type="radio" name="kind" checked={kind === 'new'} onChange={() => setKind('new')} /> 新規開発
+          </label>
+          <label>
+            <input type="radio" name="kind" checked={kind === 'existing'} onChange={() => setKind('existing')} /> 既存改修
+          </label>
+          {kind === 'existing' && (
+            <div style={{ marginTop: 'var(--space-2)' }}>
+              <label>
+                参照資料プロジェクト:{' '}
+                <select
+                  aria-label="参照資料プロジェクト"
+                  value={referenceProjectId}
+                  onChange={(e) => setReferenceProjectId(e.target.value)}
+                >
+                  <option value="">(選択)</option>
+                  {refProjects.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}（{r._count?.files ?? 0} ファイル）
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted" style={{ marginTop: 'var(--space-1)' }}>
+                既存改修は登録済みの参照資料を見積の参照に含めます。未登録なら{' '}
+                <Link to="/settings">設定 &gt; 参照資料</Link> で登録・スキャンしてください。
+              </p>
+            </div>
+          )}
+        </fieldset>
+        <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
+          見積の対象範囲はシステム構築部分(基本設計〜結合テスト)です。
+        </p>
       </div>
 
       <div className="card-grid">

@@ -113,6 +113,17 @@ describe('POST /api/tasks utilizationRate バリデーション', () => {
   });
 });
 
+describe('POST /api/reference-projects バリデーション', () => {
+  it('rootPath が無いと 400', async () => {
+    const res = await app.request('/api/reference-projects', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: '既存資料' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/projects/:id/import/requirements-text バリデーション', () => {
   it('text が空だと 400', async () => {
     const res = await app.request('/api/projects/p1/import/requirements-text', {

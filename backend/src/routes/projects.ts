@@ -20,6 +20,8 @@ export const projects = new Hono();
 const projectInput = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  kind: z.enum(['new', 'existing']).optional(),
+  referenceProjectId: z.string().min(1).optional(),
 });
 
 projects.get('/', async (c) => {
