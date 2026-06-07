@@ -116,7 +116,7 @@ export default function NewProjectPage() {
         >
           <h3>見積から始める</h3>
           <p className="muted">
-            要件一覧・見積明細のファイル(テンプレ/自由体裁)や自然文を取り込んで開始 (US-019)
+            要件一覧・見積明細のファイル(テンプレ/自由体裁)や自然文を取り込んで開始します
           </p>
         </button>
         <button
@@ -127,7 +127,7 @@ export default function NewProjectPage() {
           style={{ textAlign: 'left', cursor: 'pointer' }}
         >
           <h3>ガントから始める</h3>
-          <p className="muted">空のガントに階層タスクを表上で直接 追加・編集して開始 (US-018)</p>
+          <p className="muted">空のガントに階層タスクを表上で直接 追加・編集して開始します</p>
         </button>
       </div>
     </section>
