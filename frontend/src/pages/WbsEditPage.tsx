@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, type Member, type Project, type Task } from '../api/client';
 import { sortTasksByWbs, nextFeatureWbsId, nextChildWbsId } from '../lib/wbs';
 
 // WBS 編集画面 (US-018)。一覧表上で階層タスクを直接 追加・削除・修正する。
 export default function WbsEditPage() {
+  const [params] = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
+  const [projectId, setProjectId] = useState(params.get('projectId') ?? '');
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -15,10 +17,11 @@ export default function WbsEditPage() {
       .listProjects()
       .then((ps) => {
         setProjects(ps);
-        if (ps[0]) setProjectId(ps[0].id);
+        if (!projectId && ps[0]) setProjectId(ps[0].id);
       })
       .catch((e: unknown) => setError(toMessage(e)));
     api.listMembers().then(setMembers).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function reload() {

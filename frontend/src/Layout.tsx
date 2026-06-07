@@ -4,6 +4,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 // ナビ項目は US 実装ごとに増やす。
 const navItems: { to: string; label: string }[] = [
   { to: '/', label: 'ホーム' },
+  { to: '/new', label: '新規PJ' },
   { to: '/requirements', label: '要件' },
   { to: '/import', label: '取込' },
   { to: '/tasks', label: 'タスク' },

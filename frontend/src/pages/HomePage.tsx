@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 // トップ(ダッシュボード)。各機能への入口を示す。
 const links: { to: string; title: string; desc: string }[] = [
+  { to: '/new', title: '＋ 新規プロジェクト', desc: '見積から / ガントから 起点を選んで開始 (US-020)' },
   { to: '/requirements', title: '要件', desc: '顧客要件を受け取り登録する (US-001)' },
   { to: '/import', title: '取込', desc: 'ファイル/自然文から要件・見積を取り込む (US-019)' },
   { to: '/tasks', title: 'タスク', desc: '要件から作業タスク・工程を洗い出す (US-002)' },
