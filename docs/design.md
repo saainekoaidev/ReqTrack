@@ -45,7 +45,11 @@ reqtrack/
 | Method | Path | 概要 | US |
 |---|---|---|---|
 | GET | `/api/health` | ヘルスチェック | — |
-| GET/POST | `/api/projects` | プロジェクト一覧/作成 | US-001 |
+| GET/POST | `/api/projects` | プロジェクト一覧/作成(kind=new/existing, referenceProjectId 可) | US-001, US-024 |
+| GET/POST | `/api/reference-projects` | 参照資料プロジェクト 一覧/登録 | US-024 |
+| GET | `/api/reference-projects/:id` | 参照資料の詳細(ファイル) | US-024 |
+| POST | `/api/reference-projects/:id/scan` | 資料フォルダをスキャンし読取り | US-024 |
+| DELETE | `/api/reference-projects/:id` | 参照資料プロジェクト削除 | US-024 |
 | GET | `/api/projects/:id` | プロジェクト取得 | US-001 |
 | POST | `/api/projects/:id/expand-reviews` | レビュー自動展開(機能ごとに PL レビュー) | US-014 |
 | POST | `/api/projects/:id/efficiency` | 効率化調整(負の工数 1 行) | US-014 |

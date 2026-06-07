@@ -16,11 +16,45 @@ model Project {
   id           String        @id @default(cuid())
   name         String
   description  String?
+  // 案件区分 (US-024): new=新規 / existing=既存改修
+  kind         String        @default("new")
+  // 既存改修時に参照する資料プロジェクト (US-024)
+  referenceProject   ReferenceProject? @relation(fields: [referenceProjectId], references: [id], onDelete: SetNull)
+  referenceProjectId String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   requirements Requirement[]
   tasks        Task[]
   dailyReports DailyReport[]
+
+  @@index([referenceProjectId])
+}
+
+/// 参照資料プロジェクト (US-024)。既存改修の設計/ソース等の資料フォルダを ReqTrack 管理下に登録し、
+/// スキャンで内容を読取って見積の参照に使う。
+model ReferenceProject {
+  id        String          @id @default(cuid())
+  name      String
+  rootPath  String
+  note      String?
+  scannedAt DateTime?
+  createdAt DateTime        @default(now())
+  files     ReferenceFile[]
+  projects  Project[]
+}
+
+/// スキャンで読み取った参照資料ファイル (US-024)。テキスト系は冒頭抜粋を保持。
+model ReferenceFile {
+  id                 String           @id @default(cuid())
+  referenceProject   ReferenceProject @relation(fields: [referenceProjectId], references: [id], onDelete: Cascade)
+  referenceProjectId String
+  path               String // ルートからの相対パス
+  size               Int
+  ext                String?
+  excerpt            String? // テキスト系の冒頭抜粋
+  createdAt          DateTime         @default(now())
+
+  @@index([referenceProjectId])
 }
 
 /// 顧客からヒアリング/提示された要件 (US-001)。タスク洗い出しの起点 (US-002)。

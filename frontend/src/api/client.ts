@@ -9,6 +9,25 @@ export interface Project {
   createdAt: string;
 }
 
+export interface ReferenceFile {
+  id: string;
+  path: string;
+  size: number;
+  ext: string | null;
+  excerpt: string | null;
+}
+
+export interface ReferenceProject {
+  id: string;
+  name: string;
+  rootPath: string;
+  note: string | null;
+  scannedAt: string | null;
+  createdAt: string;
+  files?: ReferenceFile[];
+  _count?: { files: number };
+}
+
 export interface Requirement {
   id: string;
   projectId: string;
@@ -145,8 +164,25 @@ export const api = {
 
   // projects
   listProjects: () => request<Project[]>('/api/projects'),
-  createProject: (input: { name: string; description?: string }) =>
-    request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
+  createProject: (input: {
+    name: string;
+    description?: string;
+    kind?: 'new' | 'existing';
+    referenceProjectId?: string;
+  }) => request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
+
+  // 参照資料プロジェクト (US-024)
+  listReferenceProjects: () => request<ReferenceProject[]>('/api/reference-projects'),
+  getReferenceProject: (id: string) => request<ReferenceProject>(`/api/reference-projects/${id}`),
+  createReferenceProject: (input: { name: string; rootPath: string; note?: string }) =>
+    request<ReferenceProject>('/api/reference-projects', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  scanReferenceProject: (id: string) =>
+    request<{ scanned: number }>(`/api/reference-projects/${id}/scan`, { method: 'POST' }),
+  deleteReferenceProject: (id: string) =>
+    request<void>(`/api/reference-projects/${id}`, { method: 'DELETE' }),
 
   // requirements (US-001)
   listRequirements: (projectId: string) =>
