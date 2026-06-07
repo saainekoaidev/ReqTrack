@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type Project, type Task } from '../api/client';
+import { api, type Task } from '../api/client';
 import GanttChart from '../components/GanttChart';
 import { overallProgress, workloadByAssignee } from '../lib/gantt';
+import { useProject } from '../context/ProjectContext';
 
 // ガントチャート画面 (US-004 / US-015)。見積から初版を生成し、ce2 準拠の列で可視化する。
 export default function GanttPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
+  const { projectId } = useProject();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
   const [startDate, setStartDate] = useState('2026-06-08');
@@ -17,20 +17,16 @@ export default function GanttPage() {
 
   useEffect(() => {
     api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (ps[0]) setProjectId(ps[0].id);
-      })
-      .catch((e: unknown) => setError(toMessage(e)));
-    api
       .listHolidays()
       .then((hs) => setHolidays(new Set(hs.map((h) => h.date.slice(0, 10)))))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      setTasks([]);
+      return;
+    }
     api
       .listTasks(projectId)
       .then(setTasks)
@@ -59,17 +55,6 @@ export default function GanttPage() {
 
       <div className="card">
         <div className="inline-form" style={{ marginTop: 0 }}>
-          <label>
-            プロジェクト:{' '}
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              {projects.length === 0 && <option value="">(プロジェクトなし)</option>}
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <label>
             開始日:{' '}
             <input

@@ -1,18 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  api,
-  type DailyReport,
-  type Member,
-  type Project,
-  type Task,
-} from '../api/client';
+import { api, type DailyReport, type Member, type Task } from '../api/client';
+import { useProject } from '../context/ProjectContext';
 
 // 日報画面 (US-017)。複数タスクの進捗をまとめて登録し、一覧・詳細確認、ガント反映。
 type EntryDraft = { checked: boolean; progress: string; comment: string };
 
 export default function DailyReportsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
+  const { projectId } = useProject();
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [reports, setReports] = useState<DailyReport[]>([]);
@@ -30,13 +24,6 @@ export default function DailyReportsPage() {
   const detailDialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (ps[0]) setProjectId(ps[0].id);
-      })
-      .catch((e: unknown) => setError(toMessage(e)));
     api
       .listMembers()
       .then((ms) => {
@@ -127,22 +114,9 @@ export default function DailyReportsPage() {
       )}
 
       <div className="card">
-        <div className="inline-form" style={{ marginTop: 0 }}>
-          <label>
-            対象プロジェクト:{' '}
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              {projects.length === 0 && <option value="">(プロジェクトなし)</option>}
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={openNew} disabled={!projectId}>
-            新規登録
-          </button>
-        </div>
+        <button type="button" onClick={openNew} disabled={!projectId}>
+          新規登録
+        </button>
       </div>
 
       <div className="card">

@@ -16,7 +16,7 @@ export default function NewProjectPage() {
     try {
       const p = await api.createProject({ name: name.trim(), description: description.trim() || undefined });
       // 見積から → 取込画面 / ガントから → WBS 編集画面
-      navigate(mode === 'estimate' ? `/import?projectId=${p.id}` : `/wbs?projectId=${p.id}`);
+      navigate(mode === 'estimate' ? `/create/import?projectId=${p.id}` : `/create/wbs?projectId=${p.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);

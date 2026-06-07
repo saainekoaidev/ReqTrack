@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ProjectProvider } from '../context/ProjectContext';
 import DelaysPage from './DelaysPage';
 
 const project = { id: 'p1', name: '案件A', description: null, createdAt: '' };
@@ -15,7 +16,7 @@ const delay = {
 };
 
 describe('DelaysPage', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
   it('遅延タスクと遅れ要員を表示する', async () => {
     vi.stubGlobal(
@@ -50,8 +51,10 @@ describe('DelaysPage', () => {
 
     render(
       <MemoryRouter>
-        <DelaysPage />
-      </MemoryRouter>,
+          <ProjectProvider>
+            <DelaysPage />
+          </ProjectProvider>
+        </MemoryRouter>,
     );
 
     await waitFor(() => expect(screen.getAllByText('設計').length).toBeGreaterThanOrEqual(1));

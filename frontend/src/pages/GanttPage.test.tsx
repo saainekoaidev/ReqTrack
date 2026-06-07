@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ProjectProvider } from '../context/ProjectContext';
 import GanttPage from './GanttPage';
 
 const project = { id: 'p1', name: '案件A', description: null, createdAt: '' };
@@ -20,7 +21,7 @@ const scheduled = [
 ];
 
 describe('GanttPage', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
   it('ガント初版を生成するとバーが描画される', async () => {
     vi.stubGlobal(
@@ -39,8 +40,10 @@ describe('GanttPage', () => {
 
     render(
       <MemoryRouter>
-        <GanttPage />
-      </MemoryRouter>,
+          <ProjectProvider>
+            <GanttPage />
+          </ProjectProvider>
+        </MemoryRouter>,
     );
 
     // 初期は計画なしのメッセージ

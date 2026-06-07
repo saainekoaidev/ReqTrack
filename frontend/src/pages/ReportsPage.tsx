@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { api, type Member, type Project, type Task } from '../api/client';
+import { api, type Member, type Task } from '../api/client';
+import { useProject } from '../context/ProjectContext';
 
 // 進捗報告画面 (US-007)。要員がタスクの進捗率を報告し、タスクへ反映する (→ US-008)。
 export default function ReportsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
+  const { projectId } = useProject();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [drafts, setDrafts] = useState<Record<string, { memberId: string; progress: string }>>({});
@@ -12,13 +12,6 @@ export default function ReportsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (ps[0]) setProjectId(ps[0].id);
-      })
-      .catch((e: unknown) => setError(toMessage(e)));
     api
       .listMembers()
       .then(setMembers)
@@ -76,20 +69,6 @@ export default function ReportsPage() {
           {message}
         </p>
       )}
-
-      <div className="card">
-        <label>
-          対象プロジェクト:{' '}
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {projects.length === 0 && <option value="">(プロジェクトなし)</option>}
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
 
       <div className="card">
         <h3>タスクの進捗報告</h3>

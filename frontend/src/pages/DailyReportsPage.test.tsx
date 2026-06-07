@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ProjectProvider } from '../context/ProjectContext';
 import DailyReportsPage from './DailyReportsPage';
 
 const project = { id: 'p1', name: '案件A', description: null, createdAt: '' };
@@ -26,7 +27,7 @@ const task = {
 };
 
 describe('DailyReportsPage (US-017)', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
   it('複数タスクを選んで日報を登録すると一覧に蓄積される', async () => {
     let created = false;
@@ -60,8 +61,10 @@ describe('DailyReportsPage (US-017)', () => {
 
     render(
       <MemoryRouter>
-        <DailyReportsPage />
-      </MemoryRouter>,
+          <ProjectProvider>
+            <DailyReportsPage />
+          </ProjectProvider>
+        </MemoryRouter>,
     );
 
     await userEvent.click(await screen.findByRole('button', { name: '新規登録' }));
