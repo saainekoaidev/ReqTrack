@@ -11,6 +11,7 @@ export default function GanttPage() {
   const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
   const [hoursPerDay, setHoursPerDay] = useState(8);
   const [startDate, setStartDate] = useState('2026-06-08');
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const overall = useMemo(() => overallProgress(tasks), [tasks]);
@@ -35,13 +36,20 @@ export default function GanttPage() {
       .catch((e: unknown) => setError(toMessage(e)));
   }, [projectId]);
 
-  async function generate() {
+  async function regenerate() {
     if (!projectId) return;
     try {
       const updated = await api.generateSchedule(projectId, startDate);
       setTasks(updated);
+      const scheduled = updated.filter((t) => t.plannedStart).length;
+      setMessage(
+        scheduled > 0
+          ? `スケジュールを再生成しました(${scheduled} 件のタスクを配置)。`
+          : '配置対象のタスクがありません。工数(人日)が 0 より大きいタスクが必要です(見積を入力してください)。',
+      );
       setError(null);
     } catch (e) {
+      setMessage(null);
       setError(toMessage(e));
     }
   }
@@ -52,6 +60,11 @@ export default function GanttPage() {
       {error && (
         <p className="error" role="alert">
           {error}
+        </p>
+      )}
+      {message && (
+        <p className="muted" role="status">
+          {message}
         </p>
       )}
 
@@ -66,8 +79,8 @@ export default function GanttPage() {
               onChange={(e) => setStartDate(e.target.value)}
             />
           </label>
-          <button type="button" onClick={generate} disabled={!projectId}>
-            ガント初版を生成
+          <button type="button" onClick={regenerate} disabled={!projectId}>
+            スケジュールを再生成
           </button>
           {projectId && (
             <a className="btn-link" href={api.estimateXlsxUrl(projectId)}>
@@ -76,7 +89,7 @@ export default function GanttPage() {
           )}
         </div>
         <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
-          見積(人日)をもとに、土日・祝日を除いた稼働日でタスクを直列に割り付けます。
+          見積(人日)と稼働率をもとに、土日・祝日を除いた稼働日でタスクを割り付け直します。初版は新規作成の「見積」で生成されます。
         </p>
       </div>
 
