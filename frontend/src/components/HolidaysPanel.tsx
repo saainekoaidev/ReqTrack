@@ -6,11 +6,27 @@ export default function HolidaysPanel() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [date, setDate] = useState('');
   const [name, setName] = useState('');
+  const [year, setYear] = useState(2026);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function reload() {
     api.listHolidays().then(setHolidays).catch((e: unknown) => setError(msg(e)));
-  }, []);
+  }
+  useEffect(reload, []);
+
+  async function importYear() {
+    setMessage('取得中…');
+    try {
+      const r = await api.importHolidays(year);
+      setMessage(`${r.year} 年の祝日を ${r.added} 件登録しました(取得 ${r.fetched} 件)。`);
+      setError(null);
+      reload();
+    } catch (e) {
+      setMessage(null);
+      setError(msg(e));
+    }
+  }
 
   async function add(e: FormEvent) {
     e.preventDefault();
@@ -38,6 +54,31 @@ export default function HolidaysPanel() {
   return (
     <div className="card">
       <h3>祝日</h3>
+      <p className="muted">
+        日本の祝日カレンダーから年単位で自動取得できます(重複日はスキップ)。
+      </p>
+      <div className="inline-form" style={{ marginTop: 0 }}>
+        <label>
+          年:{' '}
+          <input
+            type="number"
+            min={2000}
+            max={2100}
+            aria-label="取得する年"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            style={{ width: '6rem' }}
+          />
+        </label>
+        <button type="button" onClick={importYear}>
+          祝日を自動取得
+        </button>
+      </div>
+      {message && (
+        <p className="muted" role="status">
+          {message}
+        </p>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}

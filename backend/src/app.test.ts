@@ -113,6 +113,13 @@ describe('POST /api/tasks utilizationRate バリデーション', () => {
   });
 });
 
+describe('POST /api/holidays/import バリデーション', () => {
+  it('year が無いと 400(外部接続前に弾く)', async () => {
+    const res = await app.request('/api/holidays/import', { method: 'POST' });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/reference-projects バリデーション', () => {
   it('rootPath が無いと 400', async () => {
     const res = await app.request('/api/reference-projects', {
