@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { ProjectProvider } from '../context/ProjectContext';
 import ReportsPage from './ReportsPage';
 
 const project = { id: 'p1', name: '案件A', description: null, createdAt: '' };
@@ -19,7 +20,7 @@ const task = {
 };
 
 describe('ReportsPage', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
   it('進捗を報告するとタスクの現在値に反映される', async () => {
     vi.stubGlobal(
@@ -39,8 +40,10 @@ describe('ReportsPage', () => {
 
     render(
       <MemoryRouter>
-        <ReportsPage />
-      </MemoryRouter>,
+          <ProjectProvider>
+            <ReportsPage />
+          </ProjectProvider>
+        </MemoryRouter>,
     );
 
     const memberSelect = await screen.findByLabelText('設計 の報告者');

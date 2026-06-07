@@ -22,8 +22,8 @@ describe('NewProjectPage (US-020)', () => {
       <MemoryRouter initialEntries={['/new']}>
         <Routes>
           <Route path="/new" element={<NewProjectPage />} />
-          <Route path="/import" element={<div>IMPORT_STUB</div>} />
-          <Route path="/wbs" element={<div>WBS_STUB</div>} />
+          <Route path="/create/import" element={<div>IMPORT_STUB</div>} />
+          <Route path="/create/wbs" element={<div>WBS_STUB</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -49,8 +49,8 @@ describe('NewProjectPage (US-020)', () => {
       <MemoryRouter initialEntries={['/new']}>
         <Routes>
           <Route path="/new" element={<NewProjectPage />} />
-          <Route path="/import" element={<div>IMPORT_STUB</div>} />
-          <Route path="/wbs" element={<div>WBS_STUB</div>} />
+          <Route path="/create/import" element={<div>IMPORT_STUB</div>} />
+          <Route path="/create/wbs" element={<div>WBS_STUB</div>} />
         </Routes>
       </MemoryRouter>,
     );

@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
-import {
-  api,
-  type DelayItem,
-  type DelayedMember,
-  type Project,
-  type RecoveryPlan,
-} from '../api/client';
+import { api, type DelayItem, type DelayedMember, type RecoveryPlan } from '../api/client';
+import { useProject } from '../context/ProjectContext';
 
 // 遅延ダッシュボード (US-009 遅れ検出 / US-010 遅れ要員 / US-011 リカバリプラン)。
 const severityLabel: Record<RecoveryPlan['actions'][number]['severity'], string> = {
@@ -15,22 +10,11 @@ const severityLabel: Record<RecoveryPlan['actions'][number]['severity'], string>
 };
 
 export default function DelaysPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
+  const { projectId } = useProject();
   const [delays, setDelays] = useState<DelayItem[]>([]);
   const [delayedMembers, setDelayedMembers] = useState<DelayedMember[]>([]);
   const [recovery, setRecovery] = useState<RecoveryPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (ps[0]) setProjectId(ps[0].id);
-      })
-      .catch((e: unknown) => setError(toMessage(e)));
-  }, []);
 
   useEffect(() => {
     if (!projectId) return;
@@ -56,20 +40,6 @@ export default function DelaysPage() {
           {error}
         </p>
       )}
-
-      <div className="card">
-        <label>
-          対象プロジェクト:{' '}
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {projects.length === 0 && <option value="">(プロジェクトなし)</option>}
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
 
       <div className="card">
         <h3>遅延しているタスク</h3>

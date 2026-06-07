@@ -73,7 +73,7 @@ export default function ImportPage() {
       )}
       {message && (
         <p className="muted" role="status">
-          {message} <Link to="/wbs">WBS編集へ</Link> / <Link to="/gantt">ガントへ</Link>
+          {message} <Link to="/create/wbs">WBS編集へ</Link> / <Link to="/manage/gantt">ガントへ</Link>
         </p>
       )}
 

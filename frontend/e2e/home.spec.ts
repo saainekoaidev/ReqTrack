@@ -1,11 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-test('トップ画面が表示されナビできる', async ({ page }) => {
+test('ランディングから各入口へ遷移できる', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'ReqTrack' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'ダッシュボード' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'ReqTrack' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'ようこそ' })).toBeVisible();
 
-  // 要件画面へ遷移
-  await page.getByRole('navigation').getByRole('link', { name: '要件' }).click();
-  await expect(page.getByRole('heading', { name: '要件', exact: true })).toBeVisible();
+  // 新規作成系へ
+  await page.getByRole('link', { name: /新規作成/ }).click();
+  await expect(page.getByRole('heading', { name: '新規プロジェクト' })).toBeVisible();
+
+  // 進捗管理系へ(左ペインメニュー)
+  await page.goto('/manage');
+  await expect(page.getByRole('navigation', { name: '進捗管理メニュー' })).toBeVisible();
 });

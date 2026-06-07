@@ -18,7 +18,12 @@
 | S09 | 取込 | `/import` | 自然文/ファイル(xlsx/csv)から要件・見積明細を取込 (US-019) | 実装済 |
 | S06 | 遅延ダッシュボード | `/delays` | 遅延タスク(US-009)・遅れ要員(US-010)・リカバリ案(US-011) | 実装済 |
 
-ルーティングは `react-router-dom` (`frontend/src/main.tsx`)、共通レイアウトは `frontend/src/Layout.tsx`。
+ルーティングは `react-router-dom` (`frontend/src/main.tsx`)。**US-021 でシェルを刷新**:
+- `/` ランディング(入口分離): 新規作成 / 進捗管理 / 設定
+- `/create/*` 新規作成系(ヘッダ + コンテンツ。ステッパーは US-023): new(index)/requirements/import/tasks/estimate/wbs
+- `/manage/*` 進捗管理系(共通シェル: ヘッダ右上に参照プロジェクト選択 `ProjectContext`、左ペインメニュー): gantt/reports/daily/delays
+- `/settings` 設定(US-021 暫定、US-022 でタブ化)
+- テーマは淡い緑系統、フォントは M PLUS Rounded 1c、アイコンは自前 SVG ピクトグラム (`components/Icon.tsx`)。
 
 ## 2. 画面遷移
 
