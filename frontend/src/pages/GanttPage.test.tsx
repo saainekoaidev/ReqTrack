@@ -23,7 +23,7 @@ const scheduled = [
 describe('GanttPage', () => {
   afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
-  it('ガント初版を生成するとバーが描画される', async () => {
+  it('スケジュールを再生成するとバーが描画される', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
@@ -51,7 +51,7 @@ describe('GanttPage', () => {
       expect(screen.getByText(/計画日が設定されたタスクがありません/)).toBeInTheDocument(),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'ガント初版を生成' }));
+    await userEvent.click(screen.getByRole('button', { name: 'スケジュールを再生成' }));
 
     await waitFor(() => expect(screen.getByRole('table', { name: 'ガントチャート' })).toBeInTheDocument());
     expect(screen.getByText('設計')).toBeInTheDocument();

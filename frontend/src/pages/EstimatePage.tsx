@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, type Project, type Task } from '../api/client';
 import { effortHours, spanWorkingDays, round3 } from '../lib/estimate';
 
-// 見積画面 (US-003 / US-012)。工数(人日, 小数自由値)と稼働率を設定し、期間・時間を確認する。
+// 見積画面 (見積入力 + ガント初版生成)。工数(人日, 小数自由値)と稼働率を設定し、期間・時間を確認する。
 type Draft = { estimate: string; util: string };
 
 export default function EstimatePage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [minStep, setMinStep] = useState(0.1);
+  const [startDate, setStartDate] = useState('2026-06-08');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,19 @@ export default function EstimatePage() {
   }, [projectId]);
 
   const total = useMemo(() => round3(tasks.reduce((sum, t) => sum + (t.estimateDays || 0), 0)), [tasks]);
+
+  // ガント初版を生成して進捗管理のガントへ(新規作成ワークフローの仕上げ)
+  async function generateAndGo() {
+    if (!projectId) return;
+    try {
+      await api.generateSchedule(projectId, startDate);
+      // 進捗管理シェルの選択プロジェクトを今回の案件に合わせる
+      localStorage.setItem('reqtrack.projectId', projectId);
+      navigate('/manage/gantt');
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
 
   async function save(taskId: string) {
     const draft = drafts[taskId] ?? { estimate: '0', util: '1' };
@@ -164,6 +180,27 @@ export default function EstimatePage() {
             </tfoot>
           </table>
         )}
+      </div>
+
+      <div className="card">
+        <h3>ガント初版を生成</h3>
+        <p className="muted">
+          見積(人日)と稼働率から、土日・祝日を除いた稼働日でタスクを割り付け、ガントの初版を作成します。
+        </p>
+        <div className="inline-form" style={{ marginTop: 0 }}>
+          <label>
+            開始日:{' '}
+            <input
+              type="date"
+              aria-label="開始日"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </label>
+          <button type="button" onClick={generateAndGo} disabled={!projectId || tasks.length === 0}>
+            ガント初版を生成してガントへ
+          </button>
+        </div>
       </div>
     </section>
   );
