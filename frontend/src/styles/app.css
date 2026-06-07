@@ -242,6 +242,34 @@ h4 {
   vertical-align: -0.15em;
 }
 
+/* タブ (US-022) */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 2px solid var(--color-border);
+  margin: var(--space-3) 0;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  margin-bottom: -2px;
+}
+
+.tab.is-active {
+  color: var(--color-primary-strong);
+  border-bottom-color: var(--color-primary);
+}
+
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
