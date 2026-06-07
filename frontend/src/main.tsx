@@ -10,6 +10,7 @@ import GanttPage from './pages/GanttPage';
 import MastersPage from './pages/MastersPage';
 import ReportsPage from './pages/ReportsPage';
 import DelaysPage from './pages/DelaysPage';
+import DailyReportsPage from './pages/DailyReportsPage';
 import './styles/app.css';
 
 const router = createBrowserRouter([
@@ -25,6 +26,7 @@ const router = createBrowserRouter([
       { path: 'masters', element: <MastersPage /> },
       { path: 'reports', element: <ReportsPage /> },
       { path: 'delays', element: <DelaysPage /> },
+      { path: 'daily', element: <DailyReportsPage /> },
     ],
   },
 ]);

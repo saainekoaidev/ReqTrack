@@ -39,6 +39,35 @@ export interface DelayItem {
   actualProgress: number;
   behindBy: number;
   isDelayed: boolean;
+  latestComment: string | null;
+}
+
+export interface DailyReportEntry {
+  id: string;
+  taskId: string;
+  progress: number;
+  comment: string | null;
+  task?: Task | null;
+}
+
+export interface DailyReport {
+  id: string;
+  projectId: string;
+  memberId: string;
+  reportDate: string;
+  note: string | null;
+  createdAt: string;
+  member?: Member | null;
+  entries?: DailyReportEntry[];
+  _count?: { entries: number };
+}
+
+export interface DailyReportInput {
+  projectId: string;
+  memberId: string;
+  reportDate: string;
+  note?: string;
+  entries: { taskId: string; progress: number; comment?: string }[];
 }
 
 export interface DelayedMember {
@@ -166,6 +195,12 @@ export const api = {
   // 見積 Excel(.xlsx) のダウンロード URL (US-016)
   estimateXlsxUrl: (projectId: string) =>
     `${BASE}/api/projects/${projectId}/estimate.xlsx`,
+  // 日報 (US-017)
+  listDailyReports: (projectId: string) =>
+    request<DailyReport[]>(`/api/daily-reports?projectId=${encodeURIComponent(projectId)}`),
+  getDailyReport: (id: string) => request<DailyReport>(`/api/daily-reports/${id}`),
+  createDailyReport: (input: DailyReportInput) =>
+    request<DailyReport>('/api/daily-reports', { method: 'POST', body: JSON.stringify(input) }),
   // ガント初版生成 (US-004)
   generateSchedule: (projectId: string, startDate: string) =>
     request<Task[]>('/api/tasks/schedule', {

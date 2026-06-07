@@ -65,6 +65,8 @@ reqtrack/
 | PATCH | `/api/tasks/:id` | タスク部分更新(見積/計画日/担当/進捗) | US-003 |
 | POST | `/api/tasks/schedule` | ガント初版生成(稼働日割付) | US-004 |
 | POST | `/api/tasks/:id/reports` | 進捗報告→進捗率反映 | US-007, US-008 |
+| GET/POST | `/api/daily-reports?projectId=` | 日報の一覧/登録(複数タスク進捗を一括反映) | US-017 |
+| GET | `/api/daily-reports/:id` | 日報の詳細(明細) | US-017 |
 | GET | `/api/tasks/delays?projectId=` | 遅延タスク検出 | US-009 |
 | GET | `/api/tasks/delays/members?projectId=` | 遅れ要員の洗い出し | US-010 |
 | GET | `/api/tasks/recovery?projectId=` | リカバリプラン案生成 | US-011 |

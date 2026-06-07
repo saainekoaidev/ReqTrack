@@ -113,6 +113,31 @@ describe('POST /api/tasks utilizationRate バリデーション', () => {
   });
 });
 
+describe('POST /api/daily-reports バリデーション', () => {
+  it('entries が空だと 400', async () => {
+    const res = await app.request('/api/daily-reports', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'p1', memberId: 'm1', reportDate: '2026-06-07', entries: [] }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('reportDate の形式が不正だと 400', async () => {
+    const res = await app.request('/api/daily-reports', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectId: 'p1',
+        memberId: 'm1',
+        reportDate: '2026/06/07',
+        entries: [{ taskId: 't1', progress: 50 }],
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/projects/:id/efficiency バリデーション', () => {
   it('estimateDays が無いと 400', async () => {
     const res = await app.request('/api/projects/p1/efficiency', {
