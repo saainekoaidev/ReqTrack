@@ -157,14 +157,32 @@ tasks.get('/delays', zValidator('query', listQuery), async (c) => {
     include: { assignee: true },
   });
   const byId = new Map(all.map((t) => [t.id, t]));
-  const results = all
+  const delayed = all
     .map((t) => detectDelay(toPlanned(t), now))
     .filter((r) => r.isDelayed)
-    .sort((a, b) => b.behindBy - a.behindBy)
-    .map((r) => {
-      const t = byId.get(r.taskId);
-      return { ...r, name: t?.name ?? '', assigneeName: t?.assignee?.name ?? null };
-    });
+    .sort((a, b) => b.behindBy - a.behindBy);
+
+  // 遅延タスクの最新コメント(遅れの要因追跡 US-017)
+  const latestComments = new Map<string, string>();
+  await Promise.all(
+    delayed.map(async (r) => {
+      const latest = await prisma.progressReport.findFirst({
+        where: { taskId: r.taskId, comment: { not: null } },
+        orderBy: { reportedAt: 'desc' },
+      });
+      if (latest?.comment) latestComments.set(r.taskId, latest.comment);
+    }),
+  );
+
+  const results = delayed.map((r) => {
+    const t = byId.get(r.taskId);
+    return {
+      ...r,
+      name: t?.name ?? '',
+      assigneeName: t?.assignee?.name ?? null,
+      latestComment: latestComments.get(r.taskId) ?? null,
+    };
+  });
   return c.json(results);
 });
 

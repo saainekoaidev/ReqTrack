@@ -20,6 +20,7 @@ model Project {
   updatedAt    DateTime      @updatedAt
   requirements Requirement[]
   tasks        Task[]
+  dailyReports DailyReport[]
 }
 
 /// 顧客からヒアリング/提示された要件 (US-001)。タスク洗い出しの起点 (US-002)。
@@ -44,6 +45,7 @@ model Member {
   createdAt DateTime         @default(now())
   tasks     Task[]
   reports   ProgressReport[]
+  dailyReports DailyReport[]
 }
 
 /// 祝日 (US-006)。スケジュール算出時の非稼働日。
@@ -91,17 +93,37 @@ model Task {
   @@index([parentId])
 }
 
-/// 進捗報告 (US-007)。タスクの進捗率へ反映され(US-008)、遅延検出の根拠になる(US-009/010)。
-model ProgressReport {
-  id         String   @id @default(cuid())
-  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId     String
-  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+/// 日報 (US-017)。報告者・日付ごとの 1 提出。複数の進捗報告(明細)を束ねる。
+model DailyReport {
+  id         String           @id @default(cuid())
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  member     Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
   memberId   String
-  progress   Int // 報告時点の進捗率 0-100
-  comment    String?
-  reportedAt DateTime @default(now())
+  reportDate DateTime
+  note       String?
+  createdAt  DateTime         @default(now())
+  entries    ProgressReport[]
+
+  @@index([projectId])
+  @@index([memberId])
+}
+
+/// 進捗報告 (US-007)。タスクの進捗率へ反映され(US-008)、遅延検出の根拠になる(US-009/010)。
+/// 日報(US-017)経由の明細は dailyReportId を持つ。個別報告(US-007)は null。
+model ProgressReport {
+  id            String       @id @default(cuid())
+  task          Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId        String
+  member        Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId      String
+  dailyReport   DailyReport? @relation(fields: [dailyReportId], references: [id], onDelete: Cascade)
+  dailyReportId String?
+  progress      Int // 報告時点の進捗率 0-100
+  comment       String?
+  reportedAt    DateTime     @default(now())
 
   @@index([taskId])
   @@index([memberId])
+  @@index([dailyReportId])
 }

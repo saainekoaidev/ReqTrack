@@ -84,6 +84,7 @@ export default function DelaysPage() {
                 <th>計画(期待)</th>
                 <th>実績</th>
                 <th>遅れ</th>
+                <th>最新コメント(要因)</th>
               </tr>
             </thead>
             <tbody>
@@ -94,6 +95,7 @@ export default function DelaysPage() {
                   <td>{d.expectedProgress}%</td>
                   <td>{d.actualProgress}%</td>
                   <td className="error">▲ {d.behindBy}%</td>
+                  <td className="muted">{d.latestComment ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
