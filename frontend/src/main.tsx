@@ -13,6 +13,7 @@ import DelaysPage from './pages/DelaysPage';
 import DailyReportsPage from './pages/DailyReportsPage';
 import WbsEditPage from './pages/WbsEditPage';
 import ImportPage from './pages/ImportPage';
+import NewProjectPage from './pages/NewProjectPage';
 import './styles/app.css';
 
 const router = createBrowserRouter([
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'new', element: <NewProjectPage /> },
       { path: 'requirements', element: <RequirementsPage /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'wbs', element: <WbsEditPage /> },
