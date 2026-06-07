@@ -2,6 +2,7 @@
 // 線画(stroke)ベースで淡緑テーマに馴染ませる。
 
 export type IconName =
+  | 'home'
   | 'create'
   | 'manage'
   | 'settings'
@@ -20,6 +21,7 @@ export type IconName =
   | 'folder';
 
 const PATHS: Record<IconName, string> = {
+  home: 'M4 11l8-7 8 7M6 10v9h5v-5h2v5h5v-9',
   // 新規作成: ペン+きらめき
   create: 'M4 20l4-1L19 8a2 2 0 0 0-3-3L5 16l-1 4zM14 7l3 3',
   // 進捗管理: チェック付きクリップボード

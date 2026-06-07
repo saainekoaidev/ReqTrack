@@ -27,7 +27,7 @@ const entries: { to: string; icon: IconName; title: string; desc: string }[] = [
 export default function LandingPage() {
   return (
     <>
-      <BrandHeader />
+      <BrandHeader showHome={false} />
       <div className="landing">
         <h2>ようこそ</h2>
         <p className="muted">

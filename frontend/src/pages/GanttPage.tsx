@@ -87,7 +87,7 @@ export default function GanttPage() {
             </div>
             <strong aria-label="全体進捗率">{overall}%</strong>
           </div>
-          <p className="muted">進捗報告(US-007)を見積で加重平均した全体進捗です。</p>
+          <p className="muted">進捗報告を見積で加重平均した全体進捗です。</p>
         </div>
       )}
 
