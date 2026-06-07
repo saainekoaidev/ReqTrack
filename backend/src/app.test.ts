@@ -113,6 +113,17 @@ describe('POST /api/tasks utilizationRate バリデーション', () => {
   });
 });
 
+describe('POST /api/projects/:id/import/requirements-text バリデーション', () => {
+  it('text が空だと 400', async () => {
+    const res = await app.request('/api/projects/p1/import/requirements-text', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text: '' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/daily-reports バリデーション', () => {
   it('entries が空だと 400', async () => {
     const res = await app.request('/api/daily-reports', {

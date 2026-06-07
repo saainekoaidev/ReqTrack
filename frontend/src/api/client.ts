@@ -201,6 +201,34 @@ export const api = {
   // 見積 Excel(.xlsx) のダウンロード URL (US-016)
   estimateXlsxUrl: (projectId: string) =>
     `${BASE}/api/projects/${projectId}/estimate.xlsx`,
+  // 柔軟な取込 (US-019)
+  importRequirementsText: (projectId: string, text: string, expand = true) =>
+    request<{ requirements: number; tasks: number }>(
+      `/api/projects/${projectId}/import/requirements-text`,
+      { method: 'POST', body: JSON.stringify({ text, expand }) },
+    ),
+  importRequirementsFile: async (projectId: string, file: File, expand = true) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('expand', String(expand));
+    const res = await fetch(`${BASE}/api/projects/${projectId}/import/requirements-file`, {
+      method: 'POST',
+      body: fd,
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    return res.json() as Promise<{ requirements: number; tasks: number }>;
+  },
+  importEstimateFile: async (projectId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch(`${BASE}/api/projects/${projectId}/import/estimate-file`, {
+      method: 'POST',
+      body: fd,
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    return res.json() as Promise<{ tasks: number }>;
+  },
+
   // 日報 (US-017)
   listDailyReports: (projectId: string) =>
     request<DailyReport[]>(`/api/daily-reports?projectId=${encodeURIComponent(projectId)}`),

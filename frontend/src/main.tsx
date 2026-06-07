@@ -12,6 +12,7 @@ import ReportsPage from './pages/ReportsPage';
 import DelaysPage from './pages/DelaysPage';
 import DailyReportsPage from './pages/DailyReportsPage';
 import WbsEditPage from './pages/WbsEditPage';
+import ImportPage from './pages/ImportPage';
 import './styles/app.css';
 
 const router = createBrowserRouter([
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
       { path: 'requirements', element: <RequirementsPage /> },
       { path: 'tasks', element: <TasksPage /> },
       { path: 'wbs', element: <WbsEditPage /> },
+      { path: 'import', element: <ImportPage /> },
       { path: 'estimate', element: <EstimatePage /> },
       { path: 'gantt', element: <GanttPage /> },
       { path: 'masters', element: <MastersPage /> },
