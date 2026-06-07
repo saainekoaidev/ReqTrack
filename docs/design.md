@@ -45,6 +45,8 @@ reqtrack/
 | Method | Path | 概要 | US |
 |---|---|---|---|
 | GET | `/api/health` | ヘルスチェック | — |
+| GET/PUT | `/api/settings` | 全体設定(範囲制限つき) | US-027 |
+| POST | `/api/holidays/import?year=` | 日本の祝日を一括取得 | US-025 |
 | GET/POST | `/api/projects` | プロジェクト一覧/作成(kind=new/existing, referenceProjectId 可) | US-001, US-024 |
 | GET/POST | `/api/reference-projects` | 参照資料プロジェクト 一覧/登録 | US-024 |
 | GET | `/api/reference-projects/:id` | 参照資料の詳細(ファイル) | US-024 |

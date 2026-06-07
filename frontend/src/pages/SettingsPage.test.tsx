@@ -14,7 +14,16 @@ describe('SettingsPage (US-022)', () => {
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         let body: unknown = [];
-        if (url.includes('/api/members') && init?.method === 'POST') body = createdMember;
+        if (url.includes('/api/settings'))
+          body = {
+            id: 'singleton',
+            hoursPerDay: 8,
+            minEstimateDays: 0.1,
+            reviewRatio: 0.3,
+            reviewMinDays: 0.1,
+            defaultUtilization: 1,
+          };
+        else if (url.includes('/api/members') && init?.method === 'POST') body = createdMember;
         else if (url.includes('/api/holidays') && init?.method === 'POST') body = createdHoliday;
         return new Response(JSON.stringify(body), {
           status: 200,
@@ -29,8 +38,8 @@ describe('SettingsPage (US-022)', () => {
       </MemoryRouter>,
     );
 
-    // 既定は基本設定タブ
-    expect(screen.getByText('見積スコープ')).toBeInTheDocument();
+    // 既定は基本設定タブ(編集フォーム)
+    await waitFor(() => expect(screen.getByLabelText('1日の作業時間(時間)')).toBeInTheDocument());
 
     // 要員タブ
     await userEvent.click(screen.getByRole('tab', { name: /要員/ }));

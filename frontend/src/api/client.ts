@@ -9,6 +9,15 @@ export interface Project {
   createdAt: string;
 }
 
+export interface Settings {
+  id: string;
+  hoursPerDay: number;
+  minEstimateDays: number;
+  reviewRatio: number;
+  reviewMinDays: number;
+  defaultUtilization: number;
+}
+
 export interface ReferenceFile {
   id: string;
   path: string;
@@ -161,6 +170,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
+
+  // 全体設定 (US-027)
+  getSettings: () => request<Settings>('/api/settings'),
+  updateSettings: (input: Omit<Settings, 'id'>) =>
+    request<Settings>('/api/settings', { method: 'PUT', body: JSON.stringify(input) }),
 
   // projects
   listProjects: () => request<Project[]>('/api/projects'),

@@ -82,6 +82,17 @@ model Member {
   dailyReports DailyReport[]
 }
 
+/// アプリ全体設定 (US-027)。単一行(id="singleton")で運用。
+model Settings {
+  id                 String   @id @default("singleton")
+  hoursPerDay        Float    @default(8)
+  minEstimateDays    Float    @default(0.1)
+  reviewRatio        Float    @default(0.3)
+  reviewMinDays      Float    @default(0.1)
+  defaultUtilization Float    @default(1.0)
+  updatedAt          DateTime @updatedAt
+}
+
 /// 祝日 (US-006)。スケジュール算出時の非稼働日。
 model Holiday {
   id   String   @id @default(cuid())
