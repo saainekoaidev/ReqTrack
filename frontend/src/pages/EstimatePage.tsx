@@ -10,6 +10,7 @@ export default function EstimatePage() {
   const [projectId, setProjectId] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [minStep, setMinStep] = useState(0.1);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export default function EstimatePage() {
         if (ps[0]) setProjectId(ps[0].id);
       })
       .catch((e: unknown) => setError(toMessage(e)));
+    api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -120,7 +122,7 @@ export default function EstimatePage() {
                       <input
                         type="number"
                         min={0}
-                        step={0.001}
+                        step={minStep}
                         aria-label={`${t.name} の工数`}
                         value={d.estimate}
                         onChange={(e) =>

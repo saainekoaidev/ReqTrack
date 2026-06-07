@@ -113,6 +113,23 @@ describe('POST /api/tasks utilizationRate バリデーション', () => {
   });
 });
 
+describe('PUT /api/settings 範囲制限', () => {
+  it('範囲外(hoursPerDay=0)は 400', async () => {
+    const res = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        hoursPerDay: 0,
+        minEstimateDays: 0.1,
+        reviewRatio: 0.3,
+        reviewMinDays: 0.1,
+        defaultUtilization: 1,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/holidays/import バリデーション', () => {
   it('year が無いと 400(外部接続前に弾く)', async () => {
     const res = await app.request('/api/holidays/import', { method: 'POST' });

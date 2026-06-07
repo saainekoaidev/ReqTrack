@@ -3,7 +3,8 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import ExcelJS from 'exceljs';
-import { computeReviewTasks } from '../domain/review.js';
+import { computeReviewTasks, REVIEW_RULES } from '../domain/review.js';
+import { getSettings } from './settings.js';
 import { buildEstimateWorkbook } from '../excel.js';
 import { toDateKey } from '../domain/schedule.js';
 import { expandWbs } from '../domain/wbs.js';
@@ -191,11 +192,15 @@ projects.post('/:id/import/estimate-file', async (c) => {
 // 冪等: 既存の kind='review' を削除してから再生成する。
 projects.post('/:id/expand-reviews', async (c) => {
   const projectId = c.req.param('id');
-  const [features, reviewer] = await Promise.all([
+  const [features, reviewer, cfg] = await Promise.all([
     prisma.task.findMany({ where: { projectId, level: 1 } }),
     prisma.member.findFirst({ where: { role: 'PL' }, orderBy: { createdAt: 'asc' } }),
+    getSettings(),
   ]);
   await prisma.task.deleteMany({ where: { projectId, kind: 'review' } });
+
+  // 設定のレビュー率/下限を各ルールに適用 (US-027)
+  const rules = REVIEW_RULES.map((r) => ({ ...r, ratio: cfg.reviewRatio, min: cfg.reviewMinDays }));
 
   const created = [];
   for (const feature of features) {
@@ -206,6 +211,7 @@ projects.post('/:id/expand-reviews', async (c) => {
     const specs = computeReviewTasks(
       featNo,
       devTasks.map((t) => ({ phase: t.phase, estimateDays: t.estimateDays })),
+      rules,
     );
     for (const s of specs) {
       const task = await prisma.task.create({

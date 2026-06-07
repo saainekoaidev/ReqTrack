@@ -10,6 +10,7 @@ export default function WbsEditPage() {
   const [projectId, setProjectId] = useState(params.get('projectId') ?? '');
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [minStep, setMinStep] = useState(0.1);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function WbsEditPage() {
       })
       .catch((e: unknown) => setError(toMessage(e)));
     api.listMembers().then(setMembers).catch(() => {});
+    api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -159,7 +161,7 @@ export default function WbsEditPage() {
                     <input
                       type="number"
                       min={0}
-                      step={0.001}
+                      step={minStep}
                       aria-label={`${t.wbsId ?? t.id} の工数`}
                       defaultValue={t.estimateDays}
                       onBlur={(e) => {
