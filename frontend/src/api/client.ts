@@ -201,6 +201,11 @@ export const api = {
   createHoliday: (input: { date: string; name: string }) =>
     request<Holiday>('/api/holidays', { method: 'POST', body: JSON.stringify(input) }),
   deleteHoliday: (id: string) => request<void>(`/api/holidays/${id}`, { method: 'DELETE' }),
+  importHolidays: (year: number) =>
+    request<{ year: string; added: number; fetched: number }>(
+      `/api/holidays/import?year=${year}`,
+      { method: 'POST' },
+    ),
 
   // tasks (US-002〜)
   listTasks: (projectId?: string) =>
