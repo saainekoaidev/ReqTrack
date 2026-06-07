@@ -1,14 +1,45 @@
+import { useState } from 'react';
 import { BrandHeader } from '../components/BrandHeader';
-import MastersPage from './MastersPage';
+import BasicSettingsPanel from '../components/BasicSettingsPanel';
+import MembersPanel from '../components/MembersPanel';
+import HolidaysPanel from '../components/HolidaysPanel';
+import { Icon, type IconName } from '../components/Icon';
 
-// 設定 (US-021 暫定)。US-022 で 基本設定/要員/休日 のタブ画面に刷新する。
+// 設定 (US-022)。タブ切替で 基本設定 / 要員 / 休日。
+type TabKey = 'basic' | 'members' | 'holidays';
+const tabs: { key: TabKey; label: string; icon: IconName }[] = [
+  { key: 'basic', label: '基本設定', icon: 'settings' },
+  { key: 'members', label: '要員', icon: 'member' },
+  { key: 'holidays', label: '休日', icon: 'holiday' },
+];
+
 export default function SettingsPage() {
+  const [tab, setTab] = useState<TabKey>('basic');
   return (
     <>
       <BrandHeader />
       <main className="shell-content" style={{ margin: '0 auto', maxWidth: 1100 }}>
         <h2>設定</h2>
-        <MastersPage />
+        <div className="tabs" role="tablist" aria-label="設定タブ">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={tab === t.key ? 'tab is-active' : 'tab'}
+              onClick={() => setTab(t.key)}
+            >
+              <Icon name={t.icon} size={16} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div role="tabpanel">
+          {tab === 'basic' && <BasicSettingsPanel />}
+          {tab === 'members' && <MembersPanel />}
+          {tab === 'holidays' && <HolidaysPanel />}
+        </div>
       </main>
     </>
   );
