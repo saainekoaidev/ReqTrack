@@ -122,6 +122,10 @@ export interface CreateTaskInput {
   plannedStart?: string;
   plannedEnd?: string;
   assigneeId?: string;
+  level?: number;
+  parentId?: string;
+  wbsId?: string;
+  phase?: string;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -167,12 +171,14 @@ export const api = {
     request<Task[]>(`/api/tasks${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`),
   createTask: (input: CreateTaskInput) =>
     request<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  deleteTask: (id: string) => request<void>(`/api/tasks/${id}`, { method: 'DELETE' }),
   updateTask: (
     id: string,
-    patch: Partial<Omit<CreateTaskInput, 'projectId'>> & {
+    patch: Partial<Omit<CreateTaskInput, 'projectId' | 'assigneeId' | 'phase'>> & {
       progress?: number;
       phase?: string | null;
       estimateNote?: string | null;
+      assigneeId?: string | null;
     },
   ) => request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   // 要件から WBS+標準工程を展開 (US-013)

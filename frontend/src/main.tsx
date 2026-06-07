@@ -11,6 +11,7 @@ import MastersPage from './pages/MastersPage';
 import ReportsPage from './pages/ReportsPage';
 import DelaysPage from './pages/DelaysPage';
 import DailyReportsPage from './pages/DailyReportsPage';
+import WbsEditPage from './pages/WbsEditPage';
 import './styles/app.css';
 
 const router = createBrowserRouter([
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'requirements', element: <RequirementsPage /> },
       { path: 'tasks', element: <TasksPage /> },
+      { path: 'wbs', element: <WbsEditPage /> },
       { path: 'estimate', element: <EstimatePage /> },
       { path: 'gantt', element: <GanttPage /> },
       { path: 'masters', element: <MastersPage /> },

@@ -23,6 +23,11 @@ const taskInput = z.object({
   plannedStart: z.string().datetime().optional(),
   plannedEnd: z.string().datetime().optional(),
   assigneeId: z.string().min(1).optional(),
+  // WBS 階層 (US-018)
+  level: z.number().int().min(1).max(3).optional(),
+  parentId: z.string().min(1).optional(),
+  wbsId: z.string().min(1).optional(),
+  phase: z.string().min(1).optional(),
 });
 
 const reportInput = z.object({
@@ -56,9 +61,20 @@ tasks.post('/', zValidator('json', taskInput), async (c) => {
       plannedStart: v.plannedStart ? new Date(v.plannedStart) : undefined,
       plannedEnd: v.plannedEnd ? new Date(v.plannedEnd) : undefined,
       assigneeId: v.assigneeId,
+      level: v.level,
+      parentId: v.parentId,
+      wbsId: v.wbsId,
+      phase: v.phase,
     },
   });
   return c.json(created, 201);
+});
+
+// タスク削除 (US-018)。子タスクは親リレーションの Cascade で連鎖削除。
+tasks.delete('/:id', async (c) => {
+  const id = c.req.param('id');
+  await prisma.task.delete({ where: { id } });
+  return c.body(null, 204);
 });
 
 // タスクの部分更新 (US-003 見積 / US-004 計画日 / 担当割当)

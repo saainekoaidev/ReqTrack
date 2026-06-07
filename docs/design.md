@@ -61,7 +61,8 @@ reqtrack/
 | POST | `/api/holidays` | 祝日登録 | US-006 |
 | DELETE | `/api/holidays/:id` | 祝日削除 | US-006 |
 | GET | `/api/tasks?projectId=` | タスク一覧 | US-002, US-004 |
-| POST | `/api/tasks` | タスク登録 | US-002 |
+| POST | `/api/tasks` | タスク登録(level/parentId/wbsId/phase 可) | US-002, US-018 |
+| DELETE | `/api/tasks/:id` | タスク削除(子は連鎖削除) | US-018 |
 | PATCH | `/api/tasks/:id` | タスク部分更新(見積/計画日/担当/進捗) | US-003 |
 | POST | `/api/tasks/schedule` | ガント初版生成(稼働日割付) | US-004 |
 | POST | `/api/tasks/:id/reports` | 進捗報告→進捗率反映 | US-007, US-008 |
