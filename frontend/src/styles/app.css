@@ -183,6 +183,11 @@ h4 {
   background: var(--color-bg);
   color: var(--color-text-muted);
   font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.step + .step {
+  margin-left: var(--space-1);
 }
 
 .step.is-active {
