@@ -214,7 +214,13 @@ export interface EstimatedTask {
   estimateDays: number;
   /** 稼働率 (0 < r <= 1)。未指定は 1.0(専従)。 */
   utilizationRate?: number;
+  /** 依存グループ(同一対象=同じ親)。同じ groupKey は配列順(=工程順)に直列。未指定はタスク固有(依存なし)。 */
+  groupKey?: string;
+  /** 要員。同じ resourceKey は直列。未指定/未割当は共通プールで直列。 */
+  resourceKey?: string;
 }
+
+const UNASSIGNED_KEY = '__unassigned__';
 
 export interface ScheduledTask {
   id: string;
@@ -276,11 +282,39 @@ function rollToWorkStart(
   return c;
 }
 
+/** 開始時刻から勤務時間 occHours 分だけ稼働時間を消費した終了時刻を返す。 */
+function advanceWorkingHours(
+  start: Date,
+  occHours: number,
+  holidays: ReadonlySet<string>,
+  hoursPerDay: number,
+  dayStartHour: number,
+): Date {
+  const dayEndHour = dayStartHour + hoursPerDay;
+  let remaining = occHours;
+  let cur = new Date(start.getTime());
+  while (remaining > 1e-9) {
+    const day = utcMidnight(cur);
+    const dayEnd = atHour(day, dayEndHour);
+    const avail = (dayEnd.getTime() - cur.getTime()) / HOUR_MS;
+    if (remaining <= avail + 1e-9) {
+      cur = new Date(cur.getTime() + remaining * HOUR_MS);
+      remaining = 0;
+    } else {
+      remaining -= avail;
+      cur = atHour(nextWorkingDay(new Date(day.getTime() + DAY_MS), holidays), dayStartHour);
+    }
+  }
+  return cur;
+}
+
 /**
- * 見積(人日)と稼働率からタスクを直列にスケジューリングする (US-004 / US-012 / US-040)。
- * - 稼働日(土日・祝日を除く)の勤務時間内に、小数人日をそのまま(切り上げずに)割り付ける
- * - 前タスクの終了時刻から次タスクを連続して開始する(コマ区切り無し、隙間無し)
+ * 見積(人日)・稼働率・依存・要員を考慮してタスクをスケジューリングする (US-004 / US-012 / US-040 / US-041)。
+ * - 稼働日(土日・祝日を除く)の勤務時間内に、小数人日をそのまま(切り上げずに)割り付ける(コマ無し)
+ * - 開始 = max(プロジェクト開始, 同一 groupKey の直前タスク終了, 同一 resourceKey の直前タスク終了)
+ *   → 同一対象配下は工程順に直列、同一要員は直列、別グループ/別要員は並行
  * - plannedStart/End は時刻まで保持する(例: 0.5人日 → 始業 9:00〜13:00)
+ * - tasks は呼び出し側で WBS 順(工程順)に並べておくこと(groupKey 内の順序がそのまま依存順になる)
  */
 export function scheduleTasks(
   tasks: EstimatedTask[],
@@ -289,35 +323,40 @@ export function scheduleTasks(
   hoursPerDay = 8,
   dayStartHour = DAY_START_HOUR,
 ): ScheduledTask[] {
-  const dayEndHour = dayStartHour + hoursPerDay;
   const result: ScheduledTask[] = [];
-  let cursor = rollToWorkStart(
+  const base = rollToWorkStart(
     atHour(utcMidnight(startDate), dayStartHour),
     holidays,
     hoursPerDay,
     dayStartHour,
   );
+  const groupLastEnd = new Map<string, Date>();
+  const resourceLastEnd = new Map<string, Date>();
 
-  for (const task of tasks) {
-    cursor = rollToWorkStart(cursor, holidays, hoursPerDay, dayStartHour);
-    const plannedStart = new Date(cursor.getTime());
-    let remainingHours = workingDaysNeeded(task.estimateDays, task.utilizationRate) * hoursPerDay;
-    let cur = new Date(cursor.getTime());
-    while (remainingHours > 1e-9) {
-      const day = utcMidnight(cur);
-      const dayEnd = atHour(day, dayEndHour);
-      const avail = (dayEnd.getTime() - cur.getTime()) / HOUR_MS;
-      if (remainingHours <= avail + 1e-9) {
-        cur = new Date(cur.getTime() + remainingHours * HOUR_MS);
-        remainingHours = 0;
-      } else {
-        remainingHours -= avail;
-        cur = atHour(nextWorkingDay(new Date(day.getTime() + DAY_MS), holidays), dayStartHour);
-      }
-    }
-    const plannedEnd = new Date(cur.getTime());
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i]!;
+    const groupKey = task.groupKey ?? `__task_${i}__`; // 未指定は依存なし(自分専用)
+    const resourceKey = task.resourceKey ?? UNASSIGNED_KEY;
+
+    let earliest = base.getTime();
+    const g = groupLastEnd.get(groupKey);
+    if (g) earliest = Math.max(earliest, g.getTime());
+    const r = resourceLastEnd.get(resourceKey);
+    if (r) earliest = Math.max(earliest, r.getTime());
+
+    const plannedStart = rollToWorkStart(new Date(earliest), holidays, hoursPerDay, dayStartHour);
+    const occHours = workingDaysNeeded(task.estimateDays, task.utilizationRate) * hoursPerDay;
+    const plannedEnd = advanceWorkingHours(
+      plannedStart,
+      occHours,
+      holidays,
+      hoursPerDay,
+      dayStartHour,
+    );
+
     result.push({ id: task.id, plannedStart, plannedEnd });
-    cursor = new Date(plannedEnd.getTime());
+    groupLastEnd.set(groupKey, plannedEnd);
+    resourceLastEnd.set(resourceKey, plannedEnd);
   }
 
   return result;

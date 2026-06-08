@@ -154,6 +154,67 @@ describe('scheduleTasks (小数日・連続割付, US-040)', () => {
   });
 });
 
+describe('scheduleTasks (要員・依存, US-041)', () => {
+  const start = new Date('2026-06-08T00:00:00Z'); // Mon
+
+  it('別要員のタスクは並行(同時開始)する', () => {
+    const r = scheduleTasks(
+      [
+        { id: 'a', estimateDays: 1, resourceKey: 'm1' },
+        { id: 'b', estimateDays: 1, resourceKey: 'm2' },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00');
+    expect(key(r[1]!.plannedStart)).toBe('2026-06-08T09:00'); // 並行
+  });
+
+  it('同一要員のタスクは直列(1人が同時に複数不可)', () => {
+    const r = scheduleTasks(
+      [
+        { id: 'a', estimateDays: 1, resourceKey: 'm1' },
+        { id: 'b', estimateDays: 1, resourceKey: 'm1' },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-08T17:00');
+    expect(key(r[1]!.plannedStart)).toBe('2026-06-09T09:00'); // 直列
+  });
+
+  it('同一対象(groupKey)配下は別要員でも工程順に直列(依存)', () => {
+    const r = scheduleTasks(
+      [
+        { id: 'design', estimateDays: 1, groupKey: 'tgt1', resourceKey: 'm1' },
+        { id: 'code', estimateDays: 1, groupKey: 'tgt1', resourceKey: 'm2' },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    // 別要員でも同一対象配下なので design 完了後に code 開始
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-08T17:00');
+    expect(key(r[1]!.plannedStart)).toBe('2026-06-09T09:00');
+  });
+
+  it('別対象のタスクは並行できる(依存なし・別要員)', () => {
+    const r = scheduleTasks(
+      [
+        { id: 'a', estimateDays: 1, groupKey: 'tgtA', resourceKey: 'm1' },
+        { id: 'b', estimateDays: 1, groupKey: 'tgtB', resourceKey: 'm2' },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00');
+    expect(key(r[1]!.plannedStart)).toBe('2026-06-08T09:00');
+  });
+});
+
 describe('buildRecoveryPlan', () => {
   const now = new Date('2026-06-06T00:00:00Z'); // 10日タスクの中間 → 期待50%
   const baseTask: RecoveryTask = {
