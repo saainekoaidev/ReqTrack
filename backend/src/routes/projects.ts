@@ -43,6 +43,13 @@ projects.get('/:id', async (c) => {
   return c.json(project);
 });
 
+// プロジェクト削除 (US-030)。配下の要件/タスク/日報は schema の Cascade で連動削除。
+projects.delete('/:id', async (c) => {
+  const id = c.req.param('id');
+  await prisma.project.delete({ where: { id } });
+  return c.body(null, 204);
+});
+
 // 見積 Excel(.xlsx) エクスポート (US-016)。見積諸元+根拠 / WBS / ガント の 3 シート。
 projects.get('/:id/estimate.xlsx', async (c) => {
   const projectId = c.req.param('id');

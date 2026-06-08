@@ -186,6 +186,8 @@ export const api = {
     referenceProjectId?: string;
   }) => request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
 
+  deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+
   // 参照資料プロジェクト (US-024)
   listReferenceProjects: () => request<ReferenceProject[]>('/api/reference-projects'),
   getReferenceProject: (id: string) => request<ReferenceProject>(`/api/reference-projects/${id}`),

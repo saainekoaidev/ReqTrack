@@ -4,15 +4,17 @@ import BasicSettingsPanel from '../components/BasicSettingsPanel';
 import MembersPanel from '../components/MembersPanel';
 import HolidaysPanel from '../components/HolidaysPanel';
 import ReferenceProjectsPanel from '../components/ReferenceProjectsPanel';
+import ProjectsPanel from '../components/ProjectsPanel';
 import { Icon, type IconName } from '../components/Icon';
 
-// 設定 (US-022 / US-024)。タブ切替で 基本設定 / 要員 / 休日 / 参照資料。
-type TabKey = 'basic' | 'members' | 'holidays' | 'references';
+// 設定。タブ切替で 基本設定 / 要員 / 休日 / 参照資料 / プロジェクト。
+type TabKey = 'basic' | 'members' | 'holidays' | 'references' | 'projects';
 const tabs: { key: TabKey; label: string; icon: IconName }[] = [
   { key: 'basic', label: '基本設定', icon: 'settings' },
   { key: 'members', label: '要員', icon: 'member' },
   { key: 'holidays', label: '休日', icon: 'holiday' },
   { key: 'references', label: '参照資料', icon: 'folder' },
+  { key: 'projects', label: 'プロジェクト', icon: 'manage' },
 ];
 
 export default function SettingsPage() {
@@ -42,6 +44,7 @@ export default function SettingsPage() {
           {tab === 'members' && <MembersPanel />}
           {tab === 'holidays' && <HolidaysPanel />}
           {tab === 'references' && <ReferenceProjectsPanel />}
+          {tab === 'projects' && <ProjectsPanel />}
         </div>
       </main>
     </>
