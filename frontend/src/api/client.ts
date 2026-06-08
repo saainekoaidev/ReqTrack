@@ -221,6 +221,12 @@ export const api = {
     request<{ features: number; tasks: number }>(`/api/projects/${projectId}/ai-estimate`, {
       method: 'POST',
     }),
+  // 要件 → AI見積 → スケジュール割付 を一気通貫で実行しガントを生成 (US-037)
+  aiPlan: (projectId: string, startDate: string) =>
+    request<{ features: number; tasks: number; scheduled: number }>(
+      `/api/projects/${projectId}/ai-plan`,
+      { method: 'POST', body: JSON.stringify({ startDate }) },
+    ),
 
   // 参照資料プロジェクト (US-024)
   listReferenceProjects: () => request<ReferenceProject[]>('/api/reference-projects'),

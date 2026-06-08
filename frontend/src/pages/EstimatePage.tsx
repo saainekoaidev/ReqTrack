@@ -64,6 +64,24 @@ export default function EstimatePage() {
     }
   }
 
+  // 要件 → AI見積 → スケジュール割付 を一気通貫で実行しガントへ (US-037)
+  async function aiPlanAndGo() {
+    if (!projectId) return;
+    setMessage('AI で要件から見積・スケジュールを生成中です(数十秒かかることがあります)…');
+    try {
+      const r = await api.aiPlan(projectId, startDate);
+      setMessage(
+        `AI で生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件 / 計画済み ${r.scheduled} 件。ガントへ移動します。`,
+      );
+      setError(null);
+      localStorage.setItem('reqtrack.projectId', projectId);
+      navigate('/manage/gantt');
+    } catch (e) {
+      setMessage(null);
+      setError(toMessage(e));
+    }
+  }
+
   // ガント初版を生成して進捗管理のガントへ(新規作成ワークフローの仕上げ)
   async function generateAndGo() {
     if (!projectId) return;
@@ -133,13 +151,19 @@ export default function EstimatePage() {
       </div>
 
       <div className="card">
-        <h3>AI で見積を生成</h3>
+        <h3>AI で要件からガントまで生成</h3>
         <p className="muted">
-          要件(既存改修は参照資料も)をもとに、Claude Code(現在のご契約の使用量枠)で機能・工程・工数・根拠を生成し、WBS に追加します。追加課金の API は使いません。
+          要件(既存改修は参照資料も)をもとに、Claude Code(現在のご契約の使用量枠)で機能・工程・工数・根拠を生成し、
+          そのままスケジュール(開始日 {startDate} から土日祝を除く稼働日)を割り付けてガントを作成します。追加課金の API は使いません。
         </p>
-        <button type="button" onClick={aiGenerate} disabled={!projectId}>
-          AI で見積を生成
-        </button>
+        <div className="inline-form" style={{ marginTop: 0 }}>
+          <button type="button" onClick={aiPlanAndGo} disabled={!projectId}>
+            AI で要件からガントまで生成
+          </button>
+          <button type="button" className="btn-secondary" onClick={aiGenerate} disabled={!projectId}>
+            見積だけ生成(後で調整)
+          </button>
+        </div>
       </div>
 
       <div className="card">

@@ -5,11 +5,10 @@ import { prisma } from '../db.js';
 import {
   detectDelay,
   delayedMembers,
-  scheduleTasks,
-  toDateKey,
   buildRecoveryPlan,
   type PlannedTask,
 } from '../domain/schedule.js';
+import { scheduleProject } from '../scheduleStore.js';
 
 // タスク/工程 + 進捗報告 + 遅延検出 (US-002/003/004/007/008/009/010)
 export const tasks = new Hono();
@@ -121,30 +120,7 @@ const scheduleInput = z.object({
 
 tasks.post('/schedule', zValidator('json', scheduleInput), async (c) => {
   const { projectId, startDate } = c.req.valid('json');
-  const [projectTasks, holidayRows] = await Promise.all([
-    prisma.task.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } }),
-    prisma.holiday.findMany(),
-  ]);
-  const holidays = new Set(holidayRows.map((h) => toDateKey(h.date)));
-  // 効率化調整(負)と工数0の集約行(機能/対象)はバー対象外
-  const schedulable = projectTasks.filter((t) => t.kind !== 'efficiency' && t.estimateDays > 0);
-  const scheduled = scheduleTasks(
-    schedulable.map((t) => ({
-      id: t.id,
-      estimateDays: t.estimateDays,
-      utilizationRate: t.utilizationRate,
-    })),
-    new Date(`${startDate}T00:00:00.000Z`),
-    holidays,
-  );
-  await prisma.$transaction(
-    scheduled.map((s) =>
-      prisma.task.update({
-        where: { id: s.id },
-        data: { plannedStart: s.plannedStart, plannedEnd: s.plannedEnd },
-      }),
-    ),
-  );
+  await scheduleProject(projectId, startDate);
   const updated = await prisma.task.findMany({
     where: { projectId },
     orderBy: [{ plannedStart: 'asc' }, { createdAt: 'asc' }],

@@ -225,3 +225,14 @@ describe('POST /api/tasks/schedule バリデーション', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/projects/:id/ai-plan バリデーション (US-037)', () => {
+  it('startDate の形式が不正だと 400(AI 実行前に弾く)', async () => {
+    const res = await app.request('/api/projects/p1/ai-plan', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ startDate: '2026/06/08' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
