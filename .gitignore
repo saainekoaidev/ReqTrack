@@ -57,3 +57,5 @@ backend/prisma/migrations/dev.db
 
 # 参照資料として配置した外部ソース群(コミット対象外)
 _design/
+sntm-hk/
+sntm_hk/
