@@ -226,7 +226,10 @@ export const api = {
       body: JSON.stringify(input),
     }),
   scanReferenceProject: (id: string) =>
-    request<{ scanned: number }>(`/api/reference-projects/${id}/scan`, { method: 'POST' }),
+    request<{ scanned: number; totalFiles: number; truncated: boolean }>(
+      `/api/reference-projects/${id}/scan`,
+      { method: 'POST' },
+    ),
   deleteReferenceProject: (id: string) =>
     request<void>(`/api/reference-projects/${id}`, { method: 'DELETE' }),
 

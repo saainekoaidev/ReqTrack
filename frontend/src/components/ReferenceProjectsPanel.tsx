@@ -38,7 +38,8 @@ export default function ReferenceProjectsPanel() {
     setMessage('スキャン中…');
     try {
       const r = await api.scanReferenceProject(id);
-      setMessage(`スキャン完了: ${r.scanned} ファイルを読み取りました。`);
+      const base = `スキャン完了: テキスト ${r.scanned} 件を読み取りました(全 ${r.totalFiles} ファイル中)。`;
+      setMessage(r.truncated ? `${base} ※ 上限(${r.scanned}件)に達したため一部のみ取り込みました。` : base);
       setError(null);
       reload();
     } catch (e) {
