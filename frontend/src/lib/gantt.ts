@@ -1,104 +1,222 @@
 import type { Task } from '../api/client';
+import { sortTasksByWbs } from './wbs';
 
-// ガントチャート描画用の純粋なジオメトリ計算 (US-004)。
-const DAY_MS = 24 * 60 * 60 * 1000;
+// ガントチャート描画用の純粋なジオメトリ計算 (US-004 / US-040)。
+// 稼働時間軸(working-time): 土日祝を圧縮し、小数人日をそのまま反映する連続軸。コマ(セル)区切りは持たない。
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+/** 始業時刻(UTC基準)。バックエンドのスケジューラと一致させる。 */
+export const DAY_START_HOUR = 9;
 
-export interface GanttRow {
-  task: Task;
-  /** チャート左端(最小開始日)からの日数オフセット */
-  startOffset: number;
-  /** バーの長さ(日数、開始終了を含む) */
-  duration: number;
-}
-
-export interface GanttModel {
-  days: Date[];
-  rows: GanttRow[];
-}
-
-function atUtcMidnight(iso: string): Date {
-  const d = new Date(iso);
+function utcMidnight(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
-
-function diffDays(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / DAY_MS);
+function dayKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
-
-/**
- * 計画日(plannedStart/End)を持つタスクからガントモデルを構築する。
- * 計画日が未設定のタスクは除外する。
- */
-export function buildGantt(tasks: Task[]): GanttModel {
-  const planned = tasks.filter((t) => t.plannedStart && t.plannedEnd);
-  if (planned.length === 0) return { days: [], rows: [] };
-
-  const starts = planned.map((t) => atUtcMidnight(t.plannedStart!));
-  const ends = planned.map((t) => atUtcMidnight(t.plannedEnd!));
-  const min = new Date(Math.min(...starts.map((d) => d.getTime())));
-  const max = new Date(Math.max(...ends.map((d) => d.getTime())));
-
-  const totalDays = diffDays(min, max) + 1;
-  const days = Array.from({ length: totalDays }, (_, i) => new Date(min.getTime() + i * DAY_MS));
-
-  const rows: GanttRow[] = planned.map((task) => {
-    const start = atUtcMidnight(task.plannedStart!);
-    const end = atUtcMidnight(task.plannedEnd!);
-    return {
-      task,
-      startOffset: diffDays(min, start),
-      duration: diffDays(start, end) + 1,
-    };
-  });
-
-  return { days, rows };
-}
-
-/**
- * 全体進捗率(見積で重み付けした加重平均) (US-008)。
- * 見積が全て 0 の場合はタスク数で単純平均する。
- */
-export function overallProgress(tasks: Task[]): number {
-  if (tasks.length === 0) return 0;
-  const totalWeight = tasks.reduce((s, t) => s + (t.estimateDays || 0), 0);
-  if (totalWeight === 0) {
-    return Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length);
-  }
-  const weighted = tasks.reduce((s, t) => s + t.progress * (t.estimateDays || 0), 0);
-  return Math.round(weighted / totalWeight);
-}
-
-/** 軸ラベル用に M/D を返す。 */
-export function dayLabel(d: Date): string {
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-}
-
-const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
-
-/** 日付 + 曜日(例: 8\n月)用に、日と曜日を返す。 */
-export function dayOfMonth(d: Date): number {
-  return d.getUTCDate();
-}
-export function weekdayJa(d: Date): string {
-  return WEEKDAY_JA[d.getUTCDay()] ?? '';
-}
-
-/** 土日か判定する(軸の色分け用)。 */
 export function isWeekend(d: Date): boolean {
   const w = d.getUTCDay();
   return w === 0 || w === 6;
 }
+function isWorkingDate(d: Date, holidays: ReadonlySet<string>): boolean {
+  return !isWeekend(d) && !holidays.has(dayKey(d));
+}
 
-/** 月ヘッダ用に、連続日から「YYYY/M」ごとの列スパンを返す (US-015)。 */
-export function monthSpans(days: Date[]): { label: string; span: number }[] {
-  const out: { label: string; span: number }[] = [];
-  for (const d of days) {
-    const label = `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}`;
-    const last = out[out.length - 1];
-    if (last && last.label === label) last.span += 1;
-    else out.push({ label, span: 1 });
+/** [from, toExcl) 間の稼働日数を数える(いずれも UTC 0:00)。 */
+function countWorkingDays(from: Date, toExcl: Date, holidays: ReadonlySet<string>): number {
+  let c = 0;
+  let d = new Date(from.getTime());
+  while (d.getTime() < toExcl.getTime()) {
+    if (isWorkingDate(d, holidays)) c += 1;
+    d = new Date(d.getTime() + DAY_MS);
   }
-  return out;
+  return c;
+}
+
+/** datetime を稼働時間軸の位置(稼働日単位の小数)へ変換する(基準日からの稼働日数 + 当日内の割合)。 */
+function workingTime(
+  dt: Date,
+  baseDay: Date,
+  holidays: ReadonlySet<string>,
+  hoursPerDay: number,
+): number {
+  const day = utcMidnight(dt);
+  const whole = countWorkingDays(baseDay, day, holidays);
+  const hour = (dt.getTime() - day.getTime()) / HOUR_MS;
+  const frac = Math.min(1, Math.max(0, (hour - DAY_START_HOUR) / hoursPerDay));
+  return whole + frac;
+}
+
+export interface AxisDay {
+  date: Date;
+  /** 稼働時間軸でのこの日の開始位置(= 稼働日インデックス) */
+  wtStart: number;
+}
+
+export interface GanttRow {
+  task: Task;
+  /** 階層の深さ(level-1, 0 起点) */
+  depth: number;
+  hasChildren: boolean;
+  ancestorIds: string[];
+  /** 稼働時間軸での開始/終了(小数)。計画日が無ければ null。 */
+  startWT: number | null;
+  endWT: number | null;
+  /** 表示用集計: この行(配下含む)の工数合計(人日) */
+  totalDays: number;
+  /** 表示用の開始/終了 datetime(配下の最小開始・最大終了)。 */
+  startDate: Date | null;
+  endDate: Date | null;
+}
+
+export interface GanttModel {
+  rows: GanttRow[];
+  axis: AxisDay[];
+  /** 軸全体の稼働日数(小数, バー幅計算の分母) */
+  totalWT: number;
+  /** 年/月ヘッダ(年込み) */
+  months: { label: string; span: number }[];
+}
+
+/**
+ * 計画日(plannedStart/End)を持つ葉タスクからガントモデルを構築する (US-040)。
+ * - 親行(機能/対象)は配下の葉から開始/終了/工数を集計して表示する
+ * - 行は WBS 番号順(プレオーダー)、各行に depth と祖先IDを付与(折り畳み用)
+ */
+export function buildGantt(
+  tasks: Task[],
+  holidays: ReadonlySet<string> = new Set(),
+  hoursPerDay = 8,
+): GanttModel {
+  const planned = tasks.filter((t) => t.plannedStart && t.plannedEnd);
+  if (planned.length === 0) return { rows: [], axis: [], totalWT: 0, months: [] };
+
+  const baseDay = utcMidnight(
+    new Date(Math.min(...planned.map((t) => new Date(t.plannedStart!).getTime()))),
+  );
+  const maxEndDay = utcMidnight(
+    new Date(Math.max(...planned.map((t) => new Date(t.plannedEnd!).getTime()))),
+  );
+
+  // 稼働日軸を構築(基準日〜最大終了日の稼働日のみ)
+  const axis: AxisDay[] = [];
+  for (let d = new Date(baseDay.getTime()); d.getTime() <= maxEndDay.getTime(); d = new Date(d.getTime() + DAY_MS)) {
+    if (isWorkingDate(d, holidays)) axis.push({ date: new Date(d.getTime()), wtStart: axis.length });
+  }
+  // 軸全体長: 最終稼働日の終わり(= 稼働日数)。最低でも葉の最大終了位置を含める。
+  let totalWT = axis.length;
+  for (const t of planned) {
+    totalWT = Math.max(totalWT, workingTime(new Date(t.plannedEnd!), baseDay, holidays, hoursPerDay));
+  }
+  if (totalWT <= 0) totalWT = 1;
+
+  // 親子関係
+  const childrenByParent = new Map<string, Task[]>();
+  const byId = new Map<string, Task>();
+  for (const t of tasks) {
+    byId.set(t.id, t);
+    if (t.parentId) {
+      const arr = childrenByParent.get(t.parentId) ?? [];
+      arr.push(t);
+      childrenByParent.set(t.parentId, arr);
+    }
+  }
+
+  // 配下の葉(計画日を持つもの)を再帰収集
+  function leavesOf(task: Task): Task[] {
+    const kids = childrenByParent.get(task.id);
+    if (!kids || kids.length === 0) {
+      return task.plannedStart && task.plannedEnd ? [task] : [];
+    }
+    return kids.flatMap((k) => leavesOf(k));
+  }
+  function ancestorsOf(task: Task): string[] {
+    const ids: string[] = [];
+    let cur = task.parentId ? byId.get(task.parentId) : undefined;
+    let guard = 0;
+    while (cur && guard < 100) {
+      ids.push(cur.id);
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+      guard += 1;
+    }
+    return ids;
+  }
+
+  const ordered = sortTasksByWbs(tasks);
+  const rows: GanttRow[] = ordered.map((task) => {
+    const hasChildren = (childrenByParent.get(task.id)?.length ?? 0) > 0;
+    const leaves = hasChildren ? leavesOf(task) : task.plannedStart && task.plannedEnd ? [task] : [];
+    let startWT: number | null = null;
+    let endWT: number | null = null;
+    let startDate: Date | null = null;
+    let endDate: Date | null = null;
+    for (const lf of leaves) {
+      const s = new Date(lf.plannedStart!);
+      const e = new Date(lf.plannedEnd!);
+      const sWT = workingTime(s, baseDay, holidays, hoursPerDay);
+      const eWT = workingTime(e, baseDay, holidays, hoursPerDay);
+      if (startWT == null || sWT < startWT) {
+        startWT = sWT;
+        startDate = s;
+      }
+      if (endWT == null || eWT > endWT) {
+        endWT = eWT;
+        endDate = e;
+      }
+    }
+    const totalDays = hasChildren
+      ? Math.round(leaves.reduce((sum, lf) => sum + (lf.estimateDays || 0), 0) * 1000) / 1000
+      : task.estimateDays || 0;
+    return {
+      task,
+      depth: (task.level ?? 3) - 1,
+      hasChildren,
+      ancestorIds: ancestorsOf(task),
+      startWT,
+      endWT,
+      totalDays,
+      startDate,
+      endDate,
+    };
+  });
+
+  // 年/月ヘッダ(年込み)
+  const months: { label: string; span: number }[] = [];
+  for (const a of axis) {
+    const label = `${a.date.getUTCFullYear()}年${a.date.getUTCMonth() + 1}月`;
+    const last = months[months.length - 1];
+    if (last && last.label === label) last.span += 1;
+    else months.push({ label, span: 1 });
+  }
+
+  return { rows, axis, totalWT, months };
+}
+
+/**
+ * 全体進捗率(見積で重み付けした加重平均) (US-008)。
+ * 葉(子を持たない)タスクのみを対象にする。
+ */
+export function overallProgress(tasks: Task[]): number {
+  const childIds = new Set(tasks.map((t) => t.parentId).filter(Boolean) as string[]);
+  const leaves = tasks.filter((t) => !childIds.has(t.id) && t.kind !== 'efficiency');
+  if (leaves.length === 0) return 0;
+  const totalWeight = leaves.reduce((s, t) => s + (t.estimateDays || 0), 0);
+  if (totalWeight === 0) {
+    return Math.round(leaves.reduce((s, t) => s + t.progress, 0) / leaves.length);
+  }
+  const weighted = leaves.reduce((s, t) => s + t.progress * (t.estimateDays || 0), 0);
+  return Math.round(weighted / totalWeight);
+}
+
+const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+export function weekdayJa(d: Date): string {
+  return WEEKDAY_JA[d.getUTCDay()] ?? '';
+}
+/** 年込みの日付表記(例: 2026/6/8)。 */
+export function fmtDateYmd(d: Date | string | null): string {
+  if (!d) return '';
+  const x = typeof d === 'string' ? new Date(d) : d;
+  return `${x.getUTCFullYear()}/${x.getUTCMonth() + 1}/${x.getUTCDate()}`;
 }
 
 // 工程→色(ce2 のガントバー配色に倣う) (US-015)
@@ -135,17 +253,18 @@ export function phaseLegend(): { label: string; color: string }[] {
 }
 
 /**
- * 担当者別の工数(人日)集計。効率化(負/集約行)は除外。 (US-015)
+ * 担当者別の工数(人日)集計。効率化(負/集約行)と親(子を持つ)行は除外。 (US-015)
  * hoursPerDay を渡すと単価(円/時)から工賃概算 cost も算出する (US-028)。
- * cost = Σ(人日 × hoursPerDay × 単価)。単価未設定の要員は cost 0。
  */
 export function workloadByAssignee(
   tasks: Task[],
   hoursPerDay?: number,
 ): { name: string; days: number; cost: number | null }[] {
+  const childIds = new Set(tasks.map((t) => t.parentId).filter(Boolean) as string[]);
   const agg = new Map<string, { days: number; cost: number; hasRate: boolean }>();
   for (const t of tasks) {
     if (t.kind === 'efficiency') continue;
+    if (childIds.has(t.id)) continue; // 親(集約)行は除外
     if (!t.estimateDays || t.estimateDays <= 0) continue;
     const name = t.assignee?.name ?? '(未割当)';
     const rate = t.assignee?.hourlyRate ?? null;

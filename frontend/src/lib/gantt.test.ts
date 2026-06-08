@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildGantt,
-  dayLabel,
+  fmtDateYmd,
   isWeekend,
   overallProgress,
-  monthSpans,
   phaseColor,
   weekdayJa,
   workloadByAssignee,
@@ -32,28 +31,62 @@ function task(partial: Partial<Task> & { id: string }): Task {
   };
 }
 
-describe('buildGantt', () => {
-  it('計画日のあるタスクから日数軸とバー位置を計算する', () => {
+describe('buildGantt (US-040 稼働時間軸)', () => {
+  it('計画日のあるタスクから稼働日軸とバー位置(小数)を計算する', () => {
     const tasks = [
-      task({ id: 'a', plannedStart: '2026-06-08T00:00:00Z', plannedEnd: '2026-06-10T00:00:00Z' }),
-      task({ id: 'b', plannedStart: '2026-06-11T00:00:00Z', plannedEnd: '2026-06-12T00:00:00Z' }),
+      task({ id: 'a', wbsId: '1', plannedStart: '2026-06-08T09:00:00Z', plannedEnd: '2026-06-10T17:00:00Z' }),
+      task({ id: 'b', wbsId: '2', plannedStart: '2026-06-11T09:00:00Z', plannedEnd: '2026-06-12T17:00:00Z' }),
     ];
-    const { days, rows } = buildGantt(tasks);
-    expect(days).toHaveLength(5); // 06-08 .. 06-12
-    expect(rows[0]).toMatchObject({ startOffset: 0, duration: 3 });
-    expect(rows[1]).toMatchObject({ startOffset: 3, duration: 2 });
+    const { axis, rows, totalWT, months } = buildGantt(tasks, new Set(), 8);
+    expect(axis).toHaveLength(5); // 06-08..06-12 の平日
+    expect(totalWT).toBe(5);
+    expect(rows[0]).toMatchObject({ startWT: 0, endWT: 3 }); // 3稼働日
+    expect(rows[1]).toMatchObject({ startWT: 3, endWT: 5 });
+    expect(months).toEqual([{ label: '2026年6月', span: 5 }]);
   });
 
-  it('計画日が無いタスクは除外する', () => {
-    const { days, rows } = buildGantt([task({ id: 'x' })]);
-    expect(days).toHaveLength(0);
+  it('半日(0.5人日)のバーは幅0.5稼働日になる', () => {
+    const tasks = [
+      task({ id: 'a', wbsId: '1', plannedStart: '2026-06-08T09:00:00Z', plannedEnd: '2026-06-08T13:00:00Z' }),
+    ];
+    const { rows } = buildGantt(tasks, new Set(), 8);
+    expect(rows[0]!.startWT).toBe(0);
+    expect(rows[0]!.endWT).toBeCloseTo(0.5, 6);
+  });
+
+  it('親(機能/対象)行は配下の葉から開始/終了/工数を集計し、深さと折り畳み情報を持つ', () => {
+    const tasks = [
+      task({ id: 'F', level: 1, wbsId: '1', name: '機能' }),
+      task({ id: 'T', level: 2, wbsId: '1.1', name: '画面', parentId: 'F' }),
+      task({
+        id: 'L',
+        level: 3,
+        wbsId: '1.1.1',
+        name: '設計',
+        parentId: 'T',
+        estimateDays: 2,
+        plannedStart: '2026-06-08T09:00:00Z',
+        plannedEnd: '2026-06-09T17:00:00Z',
+      }),
+    ];
+    const { rows } = buildGantt(tasks, new Set(), 8);
+    expect(rows.map((r) => r.task.id)).toEqual(['F', 'T', 'L']);
+    expect(rows[0]).toMatchObject({ depth: 0, hasChildren: true, totalDays: 2 });
+    expect(rows[2]).toMatchObject({ depth: 2, hasChildren: false });
+    expect(rows[2]!.ancestorIds).toEqual(['T', 'F']);
+    // 親の開始位置は葉と一致
+    expect(rows[0]!.startWT).toBe(rows[2]!.startWT);
+  });
+
+  it('計画日が無いタスクは軸/行が空', () => {
+    const { axis, rows } = buildGantt([task({ id: 'x' })]);
+    expect(axis).toHaveLength(0);
     expect(rows).toHaveLength(0);
   });
 });
 
 describe('overallProgress', () => {
-  it('見積で加重平均する', () => {
-    // (100*4 + 0*1) / 5 = 80
+  it('葉タスクを見積で加重平均する', () => {
     const tasks = [
       task({ id: 'a', estimateDays: 4, progress: 100 }),
       task({ id: 'b', estimateDays: 1, progress: 0 }),
@@ -61,12 +94,13 @@ describe('overallProgress', () => {
     expect(overallProgress(tasks)).toBe(80);
   });
 
-  it('見積が全て0なら単純平均', () => {
+  it('親(子持ち)は集計から除外する', () => {
     const tasks = [
-      task({ id: 'a', estimateDays: 0, progress: 50 }),
-      task({ id: 'b', estimateDays: 0, progress: 100 }),
+      task({ id: 'F', level: 1, estimateDays: 0, progress: 0 }),
+      task({ id: 'a', parentId: 'F', estimateDays: 4, progress: 100 }),
+      task({ id: 'b', parentId: 'F', estimateDays: 1, progress: 0 }),
     ];
-    expect(overallProgress(tasks)).toBe(75);
+    expect(overallProgress(tasks)).toBe(80);
   });
 
   it('タスクなしは0', () => {
@@ -74,19 +108,7 @@ describe('overallProgress', () => {
   });
 });
 
-describe('US-015 helpers', () => {
-  it('monthSpans は連続日を月ごとにまとめる', () => {
-    const days = [
-      new Date('2026-06-29T00:00:00Z'),
-      new Date('2026-06-30T00:00:00Z'),
-      new Date('2026-07-01T00:00:00Z'),
-    ];
-    expect(monthSpans(days)).toEqual([
-      { label: '2026/6', span: 2 },
-      { label: '2026/7', span: 1 },
-    ]);
-  });
-
+describe('helpers (US-040)', () => {
   it('phaseColor は工程ごとに色を返し、未該当は既定色', () => {
     expect(phaseColor('基本設計')).toBe('#a5d8ff');
     expect(phaseColor('基本設計レビュー')).toBe('#fff3bf'); // レビュー優先
@@ -97,7 +119,17 @@ describe('US-015 helpers', () => {
     expect(weekdayJa(new Date('2026-06-08T00:00:00Z'))).toBe('月');
   });
 
-  it('workloadByAssignee は担当者別に集計し効率化を除外、単価から工賃も算出', () => {
+  it('fmtDateYmd は年込み(YYYY/M/D)', () => {
+    expect(fmtDateYmd('2026-06-08T00:00:00Z')).toBe('2026/6/8');
+    expect(fmtDateYmd(null)).toBe('');
+  });
+
+  it('isWeekend は土日のみ true', () => {
+    expect(isWeekend(new Date('2026-06-06T00:00:00Z'))).toBe(true); // Sat
+    expect(isWeekend(new Date('2026-06-08T00:00:00Z'))).toBe(false); // Mon
+  });
+
+  it('workloadByAssignee は担当者別に集計し効率化と親行を除外、単価から工賃も算出', () => {
     const yamada = { id: 'm1', name: '山田', role: null, email: null, hourlyRate: 1000, createdAt: '' };
     const result = workloadByAssignee(
       [
@@ -109,18 +141,8 @@ describe('US-015 helpers', () => {
       8,
     );
     expect(result).toEqual([
-      { name: '山田', days: 3, cost: 24000 }, // 3人日 × 8h × 1000円
+      { name: '山田', days: 3, cost: 24000 },
       { name: '(未割当)', days: 0.5, cost: null },
     ]);
-  });
-});
-
-describe('helpers', () => {
-  it('dayLabel は M/D', () => {
-    expect(dayLabel(new Date('2026-06-08T00:00:00Z'))).toBe('6/8');
-  });
-  it('isWeekend は土日のみ true', () => {
-    expect(isWeekend(new Date('2026-06-06T00:00:00Z'))).toBe(true); // Sat
-    expect(isWeekend(new Date('2026-06-08T00:00:00Z'))).toBe(false); // Mon
   });
 });
