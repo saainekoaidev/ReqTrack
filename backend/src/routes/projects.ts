@@ -308,7 +308,7 @@ async function runAiEstimate(projectId: string): Promise<AiEstimateResult> {
     return { ok: false, status: 502, error: e instanceof Error ? e.message : 'AI 出力の解析に失敗しました。' };
   }
 
-  // 生成結果を WBS タスク化(機能=level1, 作業=level3)
+  // 生成結果を 3 階層 WBS 化(機能=level1, 対象=level2, 作業=level3)
   let featureNo = await prisma.task.count({ where: { projectId, level: 1 } });
   let createdTasks = 0;
   for (const f of parsed.features) {
@@ -316,23 +316,38 @@ async function runAiEstimate(projectId: string): Promise<AiEstimateResult> {
     const feature = await prisma.task.create({
       data: { projectId, name: f.name, level: 1, wbsId: String(featureNo), kind: 'task' },
     });
-    let idx = 0;
-    for (const t of f.tasks) {
-      idx += 1;
-      await prisma.task.create({
+    let targetNo = 0;
+    for (const tg of f.targets) {
+      targetNo += 1;
+      const targetWbs = `${featureNo}.${targetNo}`;
+      const target = await prisma.task.create({
         data: {
           projectId,
           parentId: feature.id,
-          name: t.name,
-          level: 3,
-          wbsId: `${featureNo}.${idx}`,
-          phase: t.phase,
-          estimateDays: t.estimateDays,
-          estimateNote: t.reason || undefined,
+          name: tg.name,
+          level: 2,
+          wbsId: targetWbs,
           kind: 'task',
         },
       });
-      createdTasks += 1;
+      let taskNo = 0;
+      for (const t of tg.tasks) {
+        taskNo += 1;
+        await prisma.task.create({
+          data: {
+            projectId,
+            parentId: target.id,
+            name: t.name,
+            level: 3,
+            wbsId: `${targetWbs}.${taskNo}`,
+            phase: t.phase,
+            estimateDays: t.estimateDays,
+            estimateNote: t.reason || undefined,
+            kind: 'task',
+          },
+        });
+        createdTasks += 1;
+      }
     }
   }
 
