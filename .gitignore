@@ -56,6 +56,5 @@ backend/prisma/migrations/dev.db
 .mcp.json
 
 # 参照資料として配置した外部ソース群(コミット対象外)
+# 既存改修の参照資料(例: _design/ce, _design/sntm-hk)はここに置く。_design/ 配下は全て除外。
 _design/
-sntm-hk/
-sntm_hk/
