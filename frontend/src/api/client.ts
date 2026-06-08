@@ -21,6 +21,9 @@ export interface Project {
   name: string;
   description: string | null;
   createdAt: string;
+  // 案件区分・参照資料 (US-024)
+  kind?: string;
+  referenceProjectId?: string | null;
   // ガント(計画済みタスク)を持つか (US-032)。一覧APIが付与。
   hasSchedule?: boolean;
 }
@@ -303,12 +306,12 @@ export const api = {
   estimateXlsxUrl: (projectId: string) =>
     `${BASE}/api/projects/${projectId}/estimate.xlsx`,
   // 柔軟な取込 (US-019)
-  importRequirementsText: (projectId: string, text: string, expand = true) =>
+  importRequirementsText: (projectId: string, text: string, expand = false) =>
     request<{ requirements: number; tasks: number }>(
       `/api/projects/${projectId}/import/requirements-text`,
       { method: 'POST', body: JSON.stringify({ text, expand }) },
     ),
-  importRequirementsFile: async (projectId: string, file: File, expand = true) => {
+  importRequirementsFile: async (projectId: string, file: File, expand = false) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('expand', String(expand));

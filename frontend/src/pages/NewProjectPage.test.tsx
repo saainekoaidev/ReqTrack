@@ -3,61 +3,69 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import NewProjectPage from './NewProjectPage';
+import { CreateProvider } from '../context/CreateContext';
 
-describe('NewProjectPage (US-020)', () => {
-  afterEach(() => vi.unstubAllGlobals());
+const created = { id: 'pNew', name: '新案件', description: null, kind: 'new', createdAt: '' };
 
-  it('「見積から始める」でプロジェクト作成し取込画面へ遷移', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
-        new Response(JSON.stringify({ id: 'pNew', name: '新案件', description: null, createdAt: '' }), {
-          status: 201,
-          headers: { 'content-type': 'application/json' },
-        }),
-      ),
-    );
+function stubFetch() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      let body: unknown = [];
+      if (url.includes('/api/projects') && init?.method === 'POST') body = created;
+      else if (url.includes('/api/projects')) body = [created];
+      else if (url.includes('/api/reference-projects')) body = [];
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }),
+  );
+}
 
-    render(
-      <MemoryRouter initialEntries={['/new']}>
-        <Routes>
-          <Route path="/new" element={<NewProjectPage />} />
-          <Route path="/create/import" element={<div>IMPORT_STUB</div>} />
-          <Route path="/create/wbs" element={<div>WBS_STUB</div>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-
-    await userEvent.type(screen.getByLabelText('プロジェクト名'), '新案件');
-    await userEvent.click(screen.getByRole('button', { name: /見積から始める/ }));
-
-    await waitFor(() => expect(screen.getByText('IMPORT_STUB')).toBeInTheDocument());
+describe('NewProjectPage (US-020 / US-038)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
-  it('「ガントから始める」で WBS 編集へ遷移', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () =>
-        new Response(JSON.stringify({ id: 'pNew', name: '新案件', description: null, createdAt: '' }), {
-          status: 201,
-          headers: { 'content-type': 'application/json' },
-        }),
-      ),
-    );
-
+  it('プロジェクトを作成すると要件登録へ遷移する', async () => {
+    stubFetch();
     render(
-      <MemoryRouter initialEntries={['/new']}>
-        <Routes>
-          <Route path="/new" element={<NewProjectPage />} />
-          <Route path="/create/import" element={<div>IMPORT_STUB</div>} />
-          <Route path="/create/wbs" element={<div>WBS_STUB</div>} />
-        </Routes>
+      <MemoryRouter initialEntries={['/create']}>
+        <CreateProvider>
+          <Routes>
+            <Route path="/create" element={<NewProjectPage />} />
+            <Route path="/create/requirements" element={<div>REQUIREMENTS_STUB</div>} />
+          </Routes>
+        </CreateProvider>
       </MemoryRouter>,
     );
 
     await userEvent.type(screen.getByLabelText('プロジェクト名'), '新案件');
-    await userEvent.click(screen.getByRole('button', { name: /ガントから始める/ }));
+    await userEvent.click(screen.getByRole('button', { name: /プロジェクトを作成して次へ/ }));
 
-    await waitFor(() => expect(screen.getByText('WBS_STUB')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('REQUIREMENTS_STUB')).toBeInTheDocument());
+  });
+
+  it('作成済み(draft)があると入力ではなくロック表示+やり直しを出す', async () => {
+    localStorage.setItem('reqtrack.createProjectId', 'pNew');
+    stubFetch();
+    render(
+      <MemoryRouter initialEntries={['/create']}>
+        <CreateProvider>
+          <Routes>
+            <Route path="/create" element={<NewProjectPage />} />
+            <Route path="/create/requirements" element={<div>REQUIREMENTS_STUB</div>} />
+          </Routes>
+        </CreateProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /やり直し/ })).toBeInTheDocument(),
+    );
+    // ロック表示では名称入力は出ない
+    expect(screen.queryByLabelText('プロジェクト名')).toBeNull();
   });
 });

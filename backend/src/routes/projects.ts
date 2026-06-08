@@ -158,7 +158,8 @@ async function createRequirements(projectId: string, contents: string[], expand:
 const importTextInput = z.object({ text: z.string().min(1), expand: z.boolean().optional() });
 projects.post('/:id/import/requirements-text', zValidator('json', importTextInput), async (c) => {
   const projectId = c.req.param('id');
-  const { text, expand = true } = c.req.valid('json');
+  // US-038: 取込時に WBS は展開しない(展開は見積・ガント生成ステップで行う)。明示 true 時のみ展開。
+  const { text, expand = false } = c.req.valid('json');
   const result = await createRequirements(projectId, splitNaturalText(text), expand);
   return c.json(result, 201);
 });
@@ -169,7 +170,8 @@ projects.post('/:id/import/requirements-file', async (c) => {
   const body = await c.req.parseBody();
   const file = body['file'];
   if (!(file instanceof File)) return c.json({ error: 'file is required' }, 400);
-  const expand = body['expand'] !== 'false';
+  // US-038: 既定では WBS 展開しない(明示 'true' のときのみ)
+  const expand = body['expand'] === 'true';
   const rows = await fileToRows(file);
   const result = await createRequirements(projectId, extractRequirements(rows), expand);
   return c.json(result, 201);

@@ -3,8 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import WbsEditPage from './WbsEditPage';
+import { CreateProvider } from '../context/CreateContext';
 
-const project = { id: 'p1', name: '案件A', description: null, createdAt: '' };
+const project = { id: 'p1', name: '案件A', description: null, kind: 'new', createdAt: '' };
 
 function feature(id: string, wbsId: string) {
   return {
@@ -27,8 +28,11 @@ function feature(id: string, wbsId: string) {
   };
 }
 
-describe('WbsEditPage (US-018)', () => {
-  afterEach(() => vi.unstubAllGlobals());
+describe('WbsEditPage (US-018 / US-038)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
   it('「機能を追加」で level1 タスクが作成され一覧に出る', async () => {
     let added = false;
@@ -49,9 +53,12 @@ describe('WbsEditPage (US-018)', () => {
       }),
     );
 
+    localStorage.setItem('reqtrack.createProjectId', 'p1');
     render(
       <MemoryRouter>
-        <WbsEditPage />
+        <CreateProvider>
+          <WbsEditPage />
+        </CreateProvider>
       </MemoryRouter>,
     );
 

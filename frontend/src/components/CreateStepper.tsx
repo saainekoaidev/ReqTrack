@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Icon, type IconName } from './Icon';
 
-// 新規作成系ワークフローのステッパー (US-023)。現在位置を強調表示する。
+// 新規作成系ワークフローのステッパー (US-023 / US-038)。3 ステップで現在位置を強調表示する。
 interface Step {
   label: string;
   to: string;
@@ -13,13 +13,17 @@ interface Step {
 const STEPS: Step[] = [
   { label: 'プロジェクト作成', to: '/create', icon: 'create', match: ['/create'] },
   {
-    label: '要件・タスク',
-    to: '/create/import',
+    label: '要件登録',
+    to: '/create/requirements',
     icon: 'requirement',
-    match: ['/create/requirements', '/create/import', '/create/tasks', '/create/wbs'],
+    match: ['/create/requirements', '/create/import'],
   },
-  { label: '見積', to: '/create/estimate', icon: 'estimate', match: ['/create/estimate'] },
-  { label: 'ガント', to: '/manage/gantt', icon: 'gantt', match: ['/manage/gantt'] },
+  {
+    label: '見積・ガント',
+    to: '/create/estimate',
+    icon: 'estimate',
+    match: ['/create/estimate', '/create/wbs', '/create/tasks'],
+  },
 ];
 
 function activeIndex(pathname: string): number {

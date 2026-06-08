@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type Project, type Task } from '../api/client';
+import { api, type Task } from '../api/client';
+import { useCreate } from '../context/CreateContext';
 import { effortHours, spanWorkingDays, round3 } from '../lib/estimate';
 
-// 見積画面 (見積入力 + ガント初版生成)。工数(人日, 小数自由値)と稼働率を設定し、期間・時間を確認する。
+// 3. 見積・ガント生成 (US-036 / US-037 / US-038)。
+// 起点を選び(AIガント/AI見積/手組み)、WBS はこの選択後に生成する。見積調整とガント生成もここ。
 type Draft = { estimate: string; util: string };
 
 export default function EstimatePage() {
+  const { draft, loaded, clearDraft } = useCreate();
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState('');
+  const projectId = draft?.id ?? '';
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [minStep, setMinStep] = useState(0.1);
@@ -18,13 +21,6 @@ export default function EstimatePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (ps[0]) setProjectId(ps[0].id);
-      })
-      .catch((e: unknown) => setError(toMessage(e)));
     api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
   }, []);
 
@@ -47,21 +43,15 @@ export default function EstimatePage() {
   }
   useEffect(loadTasks, [projectId]);
 
-  const total = useMemo(() => round3(tasks.reduce((sum, t) => sum + (t.estimateDays || 0), 0)), [tasks]);
+  const total = useMemo(
+    () => round3(tasks.reduce((sum, t) => sum + (t.estimateDays || 0), 0)),
+    [tasks],
+  );
 
-  // AI(Claude Code サブスク枠)で見積を生成 (US-036)
-  async function aiGenerate() {
-    if (!projectId) return;
-    setMessage('AI で見積を生成中です(数十秒かかることがあります)…');
-    try {
-      const r = await api.aiEstimate(projectId);
-      setMessage(`AI 見積を生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件。`);
-      setError(null);
-      loadTasks();
-    } catch (e) {
-      setMessage(null);
-      setError(toMessage(e));
-    }
+  function finishToGantt() {
+    if (projectId) localStorage.setItem('reqtrack.projectId', projectId);
+    clearDraft();
+    navigate('/manage/gantt');
   }
 
   // 要件 → AI見積 → スケジュール割付 を一気通貫で実行しガントへ (US-037)
@@ -74,31 +64,75 @@ export default function EstimatePage() {
         `AI で生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件 / 計画済み ${r.scheduled} 件。ガントへ移動します。`,
       );
       setError(null);
-      localStorage.setItem('reqtrack.projectId', projectId);
-      navigate('/manage/gantt');
+      finishToGantt();
     } catch (e) {
       setMessage(null);
       setError(toMessage(e));
     }
   }
 
-  // ガント初版を生成して進捗管理のガントへ(新規作成ワークフローの仕上げ)
+  // AI で見積だけ生成(後で調整) (US-036)
+  async function aiEstimateOnly() {
+    if (!projectId) return;
+    setMessage('AI で見積を生成中です(数十秒かかることがあります)…');
+    try {
+      const r = await api.aiEstimate(projectId);
+      setMessage(`AI 見積を生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件。下の表で調整できます。`);
+      setError(null);
+      loadTasks();
+    } catch (e) {
+      setMessage(null);
+      setError(toMessage(e));
+    }
+  }
+
+  // ガント初版を生成して進捗管理のガントへ
   async function generateAndGo() {
     if (!projectId) return;
     try {
       await api.generateSchedule(projectId, startDate);
-      // 進捗管理シェルの選択プロジェクトを今回の案件に合わせる
-      localStorage.setItem('reqtrack.projectId', projectId);
-      navigate('/manage/gantt');
+      finishToGantt();
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
+  // レビュー自動展開 (US-014)
+  async function expandReviews() {
+    if (!projectId) return;
+    try {
+      await api.expandReviews(projectId);
+      loadTasks();
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
+  // 効率化調整(負の工数)を追加 (US-014)
+  async function addEfficiency() {
+    if (!projectId) return;
+    const raw = window.prompt('効率化調整の工数(人日, 削減は負値。例: -1.0)');
+    if (raw == null) return;
+    const estimateDays = Number(raw);
+    if (Number.isNaN(estimateDays)) {
+      setError('数値を入力してください');
+      return;
+    }
+    const note = window.prompt('削減の根拠(任意)') ?? undefined;
+    try {
+      await api.addEfficiency(projectId, { estimateDays, note });
+      loadTasks();
+      setError(null);
     } catch (e) {
       setError(toMessage(e));
     }
   }
 
   async function save(taskId: string) {
-    const draft = drafts[taskId] ?? { estimate: '0', util: '1' };
-    const estimateDays = Number(draft.estimate);
-    const utilizationRate = Number(draft.util);
+    const d = drafts[taskId] ?? { estimate: '0', util: '1' };
+    const estimateDays = Number(d.estimate);
+    const utilizationRate = Number(d.util);
     if (Number.isNaN(estimateDays) || estimateDays < 0) {
       setError('見積は 0 以上の数値を入力してください');
       return;
@@ -119,9 +153,27 @@ export default function EstimatePage() {
     }
   }
 
+  if (!loaded) return null;
+
+  if (!draft) {
+    return (
+      <section>
+        <h2>3. 見積・ガント生成</h2>
+        <div className="card">
+          <p className="muted" style={{ marginTop: 0 }}>
+            先にプロジェクトを作成し、要件を登録してください。
+          </p>
+          <button type="button" onClick={() => navigate('/create')}>
+            ← プロジェクト作成へ
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section>
-      <h2>見積</h2>
+      <h2>3. 見積・ガント生成</h2>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -134,47 +186,50 @@ export default function EstimatePage() {
       )}
 
       <div className="card">
-        <label>
-          対象プロジェクト:{' '}
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {projects.length === 0 && <option value="">(プロジェクトなし)</option>}
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
-          工数は人日(小数自由)。稼働率で実作業量と期間が変わります(期間 = 工数 ÷ 稼働率、1日 = 8時間)。
+        <p className="muted" style={{ marginTop: 0 }}>
+          対象プロジェクト: <strong>{draft.name}</strong>。工数は人日(小数自由)。期間 = 工数 ÷
+          稼働率(1日 = 8時間)。
         </p>
       </div>
 
       <div className="card">
-        <h3>AI で要件からガントまで生成</h3>
-        <p className="muted">
-          要件(既存改修は参照資料も)をもとに、Claude Code(現在のご契約の使用量枠)で機能・工程・工数・根拠を生成し、
-          そのままスケジュール(開始日 {startDate} から土日祝を除く稼働日)を割り付けてガントを作成します。追加課金の API は使いません。
+        <h3>生成方法を選ぶ</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          ここで WBS(タスク)を作ります。AI は Claude Code(現在のご契約の使用量枠)で実行し、追加課金の
+          API は使いません。
         </p>
-        <div className="inline-form" style={{ marginTop: 0 }}>
-          <button type="button" onClick={aiPlanAndGo} disabled={!projectId}>
+        <div className="inline-form" style={{ marginTop: 0, flexWrap: 'wrap' }}>
+          <button type="button" onClick={aiPlanAndGo}>
             AI で要件からガントまで生成
           </button>
-          <button type="button" className="btn-secondary" onClick={aiGenerate} disabled={!projectId}>
-            見積だけ生成(後で調整)
+          <button type="button" className="btn-secondary" onClick={aiEstimateOnly}>
+            AI で見積だけ生成(後で調整)
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/create/wbs')}>
+            手で WBS を組む(ガントから)
           </button>
         </div>
       </div>
 
-      <div className="card">
-        <h3>タスク見積</h3>
-        {tasks.length === 0 ? (
-          <p className="muted">タスクがありません。「タスク」画面で先に洗い出してください。</p>
-        ) : (
+      {tasks.length > 0 && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>タスク見積</h3>
+            <span style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <button type="button" className="btn-secondary" onClick={expandReviews}>
+                レビューを自動展開
+              </button>
+              <button type="button" className="btn-secondary" onClick={addEfficiency}>
+                効率化調整を追加
+              </button>
+            </span>
+          </div>
           <table className="data-table">
             <thead>
               <tr>
+                <th>WBS</th>
                 <th>タスク</th>
+                <th>工程</th>
                 <th>工数(人日)</th>
                 <th>稼働率</th>
                 <th>時間</th>
@@ -187,42 +242,59 @@ export default function EstimatePage() {
                 const d = drafts[t.id] ?? { estimate: '0', util: '1' };
                 const est = Number(d.estimate) || 0;
                 const util = Number(d.util) || 1;
+                const isGroup = (t.level ?? 3) < 3;
                 return (
                   <tr key={t.id}>
-                    <td>{t.name}</td>
+                    <td className="muted">{t.wbsId ?? '—'}</td>
+                    <td style={{ paddingLeft: `calc(${(t.level ?? 3) - 1} * var(--space-3))` }}>
+                      {t.level === 1 ? <strong>{t.name}</strong> : t.name}
+                      {t.kind === 'review' && <span className="badge badge-low"> レビュー</span>}
+                      {t.kind === 'efficiency' && <span className="badge badge-medium"> 効率化</span>}
+                    </td>
+                    <td>{t.phase ?? ''}</td>
                     <td>
-                      <input
-                        type="number"
-                        min={0}
-                        step={minStep}
-                        aria-label={`${t.name} の工数`}
-                        value={d.estimate}
-                        onChange={(e) =>
-                          setDrafts((s) => ({ ...s, [t.id]: { ...d, estimate: e.target.value } }))
-                        }
-                        style={{ width: '6rem' }}
-                      />
+                      {isGroup ? (
+                        ''
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          step={minStep}
+                          aria-label={`${t.name} の工数`}
+                          value={d.estimate}
+                          onChange={(e) =>
+                            setDrafts((s) => ({ ...s, [t.id]: { ...d, estimate: e.target.value } }))
+                          }
+                          style={{ width: '6rem' }}
+                        />
+                      )}
                     </td>
                     <td>
-                      <input
-                        type="number"
-                        min={0.05}
-                        max={1}
-                        step={0.05}
-                        aria-label={`${t.name} の稼働率`}
-                        value={d.util}
-                        onChange={(e) =>
-                          setDrafts((s) => ({ ...s, [t.id]: { ...d, util: e.target.value } }))
-                        }
-                        style={{ width: '5rem' }}
-                      />
+                      {isGroup ? (
+                        ''
+                      ) : (
+                        <input
+                          type="number"
+                          min={0.05}
+                          max={1}
+                          step={0.05}
+                          aria-label={`${t.name} の稼働率`}
+                          value={d.util}
+                          onChange={(e) =>
+                            setDrafts((s) => ({ ...s, [t.id]: { ...d, util: e.target.value } }))
+                          }
+                          style={{ width: '5rem' }}
+                        />
+                      )}
                     </td>
-                    <td>{effortHours(est)} h</td>
-                    <td>{spanWorkingDays(est, util)} 日</td>
+                    <td>{isGroup ? '' : `${effortHours(est)} h`}</td>
+                    <td>{isGroup ? '' : `${spanWorkingDays(est, util)} 日`}</td>
                     <td>
-                      <button type="button" onClick={() => save(t.id)}>
-                        保存
-                      </button>
+                      {!isGroup && (
+                        <button type="button" onClick={() => save(t.id)}>
+                          保存
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -231,33 +303,35 @@ export default function EstimatePage() {
             <tfoot>
               <tr>
                 <th>合計</th>
-                <td colSpan={5}>{total} 人日</td>
+                <td colSpan={7}>{total} 人日</td>
               </tr>
             </tfoot>
           </table>
-        )}
-      </div>
-
-      <div className="card">
-        <h3>ガント初版を生成</h3>
-        <p className="muted">
-          見積(人日)と稼働率から、土日・祝日を除いた稼働日でタスクを割り付け、ガントの初版を作成します。
-        </p>
-        <div className="inline-form" style={{ marginTop: 0 }}>
-          <label>
-            開始日:{' '}
-            <input
-              type="date"
-              aria-label="開始日"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </label>
-          <button type="button" onClick={generateAndGo} disabled={!projectId || tasks.length === 0}>
-            ガント初版を生成してガントへ
-          </button>
         </div>
-      </div>
+      )}
+
+      {tasks.length > 0 && (
+        <div className="card">
+          <h3>ガントを生成</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            見積(人日)と稼働率から、土日・祝日を除いた稼働日でタスクを割り付け、ガントを作成します。
+          </p>
+          <div className="inline-form" style={{ marginTop: 0 }}>
+            <label>
+              開始日:{' '}
+              <input
+                type="date"
+                aria-label="開始日"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </label>
+            <button type="button" onClick={generateAndGo}>
+              ガントを生成して進捗管理へ →
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
