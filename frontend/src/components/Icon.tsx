@@ -18,7 +18,8 @@ export type IconName =
   | 'member'
   | 'holiday'
   | 'plus'
-  | 'folder';
+  | 'folder'
+  | 'close';
 
 const PATHS: Record<IconName, string> = {
   home: 'M4 11l8-7 8 7M6 10v9h5v-5h2v5h5v-9',
@@ -41,6 +42,7 @@ const PATHS: Record<IconName, string> = {
   holiday: 'M5 5h14v15H5zM5 9h14M8 3v4M16 3v4M9 14l2 2 4-4',
   plus: 'M12 5v14M5 12h14',
   folder: 'M4 6h6l2 2h8v11H4z',
+  close: 'M6 6l12 12M18 6L6 18',
 };
 
 export function Icon({
