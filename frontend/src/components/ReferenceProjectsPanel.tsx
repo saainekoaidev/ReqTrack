@@ -10,6 +10,7 @@ export default function ReferenceProjectsPanel() {
   const [note, setNote] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scanningId, setScanningId] = useState<string | null>(null);
 
   function reload() {
     api.listReferenceProjects().then(setList).catch((e: unknown) => setError(msg(e)));
@@ -32,6 +33,8 @@ export default function ReferenceProjectsPanel() {
   }
 
   async function scan(id: string) {
+    if (scanningId) return; // 同時スキャン防止
+    setScanningId(id);
     setMessage('スキャン中…');
     try {
       const r = await api.scanReferenceProject(id);
@@ -41,6 +44,8 @@ export default function ReferenceProjectsPanel() {
     } catch (e) {
       setMessage(null);
       setError(msg(e));
+    } finally {
+      setScanningId(null);
     }
   }
 
@@ -91,11 +96,21 @@ export default function ReferenceProjectsPanel() {
                 <td className="muted">{r.rootPath}</td>
                 <td>{r._count?.files ?? 0}</td>
                 <td className="muted">{r.scannedAt ? r.scannedAt.slice(0, 10) : '未スキャン'}</td>
-                <td style={{ whiteSpace: 'nowrap' }}>
-                  <button type="button" className="btn-link-plain" onClick={() => scan(r.id)}>
-                    スキャン
-                  </button>{' '}
-                  <button type="button" className="btn-link-plain" onClick={() => remove(r.id)}>
+                <td style={{ whiteSpace: 'nowrap', display: 'flex', gap: 'var(--space-1)' }}>
+                  <button
+                    type="button"
+                    className="btn-sm"
+                    onClick={() => scan(r.id)}
+                    disabled={scanningId !== null}
+                  >
+                    {scanningId === r.id ? 'スキャン中…' : 'スキャン'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-sm btn-danger"
+                    onClick={() => remove(r.id)}
+                    disabled={scanningId !== null}
+                  >
                     削除
                   </button>
                 </td>

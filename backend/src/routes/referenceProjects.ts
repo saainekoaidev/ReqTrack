@@ -51,9 +51,16 @@ referenceProjects.post('/:id/scan', async (c) => {
 
   try {
     const root = await stat(rootPath);
-    if (!root.isDirectory()) return c.json({ error: 'rootPath はフォルダではありません' }, 400);
+    if (!root.isDirectory()) {
+      return c.json({ error: `指定先はフォルダではありません: ${rootPath}` }, 400);
+    }
   } catch {
-    return c.json({ error: `rootPath が見つかりません: ${rootPath}` }, 400);
+    return c.json(
+      {
+        error: `資料フォルダが見つかりません: 「${rootPath}」。「参照」ボタンから実在するフォルダを選び直してください(絶対パスが必要です)。`,
+      },
+      400,
+    );
   }
 
   const collected: { path: string; size: number; ext: string; excerpt: string | null }[] = [];
