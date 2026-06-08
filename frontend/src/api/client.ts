@@ -1,6 +1,20 @@
 // backend API クライアント。dev は Vite proxy 経由で /api を叩く。
 // 本番などでベース URL を切り替えたい場合は VITE_API_BASE を設定する。
+import { beginBusy, endBusy } from '../lib/busy';
+
 const BASE = import.meta.env.VITE_API_BASE ?? '';
+
+// API エラー時、サーバの { error } 文言を取り出して投げる (US-033)。
+async function toApiError(res: Response, path: string): Promise<Error> {
+  let detail = '';
+  try {
+    const j = (await res.json()) as { error?: string };
+    if (j?.error) detail = j.error;
+  } catch {
+    // JSON でない
+  }
+  return new Error(detail || `API ${res.status}: ${path}`);
+}
 
 export interface Project {
   id: string;
@@ -160,15 +174,22 @@ export interface CreateTaskInput {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'content-type': 'application/json' },
-    ...init,
-  });
-  if (!res.ok) {
-    throw new Error(`API ${res.status}: ${path}`);
+  beginBusy();
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { 'content-type': 'application/json' },
+      ...init,
+    });
+    if (!res.ok) throw await toApiError(res, path);
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
+  } catch (e) {
+    // 通信自体の失敗(オフライン等)も分かりやすく
+    if (e instanceof TypeError) throw new Error('サーバに接続できませんでした。');
+    throw e;
+  } finally {
+    endBusy();
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
 }
 
 export const api = {
@@ -277,22 +298,32 @@ export const api = {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('expand', String(expand));
-    const res = await fetch(`${BASE}/api/projects/${projectId}/import/requirements-file`, {
-      method: 'POST',
-      body: fd,
-    });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    return res.json() as Promise<{ requirements: number; tasks: number }>;
+    beginBusy();
+    try {
+      const res = await fetch(`${BASE}/api/projects/${projectId}/import/requirements-file`, {
+        method: 'POST',
+        body: fd,
+      });
+      if (!res.ok) throw await toApiError(res, 'import/requirements-file');
+      return (await res.json()) as { requirements: number; tasks: number };
+    } finally {
+      endBusy();
+    }
   },
   importEstimateFile: async (projectId: string, file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch(`${BASE}/api/projects/${projectId}/import/estimate-file`, {
-      method: 'POST',
-      body: fd,
-    });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    return res.json() as Promise<{ tasks: number }>;
+    beginBusy();
+    try {
+      const res = await fetch(`${BASE}/api/projects/${projectId}/import/estimate-file`, {
+        method: 'POST',
+        body: fd,
+      });
+      if (!res.ok) throw await toApiError(res, 'import/estimate-file');
+      return (await res.json()) as { tasks: number };
+    } finally {
+      endBusy();
+    }
   },
 
   // 日報 (US-017)
