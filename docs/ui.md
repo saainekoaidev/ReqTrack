@@ -21,6 +21,7 @@
 ルーティングは `react-router-dom` (`frontend/src/main.tsx`)。**US-021 でシェルを刷新**:
 - `/` ランディング(入口分離): 新規作成 / 進捗管理 / 設定
 - `/create/*` 新規作成系(ヘッダ + コンテンツ。ステッパーは US-023): new(index)/requirements/import/tasks/estimate/wbs
+  - `/create/estimate`(見積): **「AI で要件からガントまで生成」**(US-037, 第一選択)= 要件→AI見積→スケジュール割付を 1 アクションで実行しガントへ遷移。副ボタン「見積だけ生成(後で調整)」(US-036)。AI は Claude Code 契約枠で実行(API 課金なし)。**ReqTrack 本体は Web アプリで VSCode 起動は不要**、AI 見積実行時のみ `claude` CLI を使う。
 - `/manage/*` 進捗管理系(共通シェル: ヘッダ右上に参照プロジェクト選択 `ProjectContext`、左ペインメニュー): gantt/reports/daily/delays。**ガント(計画済みタスク)を持つプロジェクトが無い場合は遷移不可で案内表示 (US-032)**
 - `/settings` 設定(US-021 暫定、US-022 でタブ化)
 - テーマは淡い緑系統、フォントは M PLUS Rounded 1c、アイコンは自前 SVG ピクトグラム (`components/Icon.tsx`)。

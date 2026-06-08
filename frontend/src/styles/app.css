@@ -408,6 +408,12 @@ button:disabled {
   border-color: var(--color-danger);
 }
 
+.btn-secondary {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  border-color: var(--color-accent);
+}
+
 .btn-link {
   display: inline-flex;
   align-items: center;

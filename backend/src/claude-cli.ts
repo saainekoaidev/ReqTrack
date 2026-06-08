@@ -82,7 +82,8 @@ export function runClaude(prompt: string, opts: RunOptions = {}): Promise<string
       activeChildren.delete(child);
       reject(
         new Error(
-          'Claude Code CLI を起動できませんでした(claude が見つからない可能性)。VSCode + Claude Code 環境で実行してください。',
+          'AI 見積には claude CLI(Claude Code, ログイン済み)が必要です。claude が見つかりませんでした。' +
+            '※ ReqTrack 本体の利用に VSCode の起動は不要です(AI 見積のみ claude CLI を使います)。',
         ),
       );
     });

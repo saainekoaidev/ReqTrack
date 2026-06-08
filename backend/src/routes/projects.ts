@@ -7,6 +7,7 @@ import { computeReviewTasks, REVIEW_RULES } from '../domain/review.js';
 import { getSettings } from './settings.js';
 import { buildEstimateWorkbook } from '../excel.js';
 import { toDateKey } from '../domain/schedule.js';
+import { scheduleProject } from '../scheduleStore.js';
 import { expandWbs } from '../domain/wbs.js';
 import { runClaude } from '../claude-cli.js';
 import { buildEstimatePrompt, parseEstimateResponse } from '../domain/aiEstimate.js';
@@ -253,17 +254,22 @@ projects.post('/:id/expand-reviews', async (c) => {
 });
 
 // AI 見積生成 (US-036)。Claude Code CLI(サブスク枠)で要件→タスク・工数・根拠を生成し WBS 化。
-projects.post('/:id/ai-estimate', async (c) => {
-  const projectId = c.req.param('id');
+// AI 見積の中核処理。要件(既存改修は参照資料も)から Claude Code で見積を生成し WBS タスク化する。
+// /ai-estimate と /ai-plan(要件→ガント一気通貫)で共有する。
+type AiEstimateResult =
+  | { ok: true; features: number; tasks: number }
+  | { ok: false; status: 400 | 404 | 502; error: string };
+
+async function runAiEstimate(projectId: string): Promise<AiEstimateResult> {
   const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return c.json({ error: 'Not Found' }, 404);
+  if (!project) return { ok: false, status: 404, error: 'Not Found' };
 
   const requirements = await prisma.requirement.findMany({
     where: { projectId },
     orderBy: { createdAt: 'asc' },
   });
   if (requirements.length === 0) {
-    return c.json({ error: '要件がありません。先に要件を登録/取り込みしてください。' }, 400);
+    return { ok: false, status: 400, error: '要件がありません。先に要件を登録/取り込みしてください。' };
   }
 
   const cfg = await getSettings();
@@ -290,14 +296,14 @@ projects.post('/:id/ai-estimate', async (c) => {
   try {
     stdout = await runClaude(prompt);
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'AI 処理に失敗しました。' }, 502);
+    return { ok: false, status: 502, error: e instanceof Error ? e.message : 'AI 処理に失敗しました。' };
   }
 
   let parsed;
   try {
     parsed = parseEstimateResponse(stdout);
   } catch (e) {
-    return c.json({ error: e instanceof Error ? e.message : 'AI 出力の解析に失敗しました。' }, 502);
+    return { ok: false, status: 502, error: e instanceof Error ? e.message : 'AI 出力の解析に失敗しました。' };
   }
 
   // 生成結果を WBS タスク化(機能=level1, 作業=level3)
@@ -328,7 +334,28 @@ projects.post('/:id/ai-estimate', async (c) => {
     }
   }
 
-  return c.json({ features: parsed.features.length, tasks: createdTasks });
+  return { ok: true, features: parsed.features.length, tasks: createdTasks };
+}
+
+projects.post('/:id/ai-estimate', async (c) => {
+  const result = await runAiEstimate(c.req.param('id'));
+  if (!result.ok) return c.json({ error: result.error }, result.status);
+  return c.json({ features: result.features, tasks: result.tasks });
+});
+
+// 要件 → AI見積 → スケジュール割付 を 1 アクションで実行しガントを生成する (US-037)。
+// ce2 の「要件 → スケジュール表」に相当(出力はガント)。AI は Claude Code 契約枠で実行(API 課金なし)。
+const aiPlanInput = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate は YYYY-MM-DD 形式'),
+});
+
+projects.post('/:id/ai-plan', zValidator('json', aiPlanInput), async (c) => {
+  const projectId = c.req.param('id');
+  const { startDate } = c.req.valid('json');
+  const est = await runAiEstimate(projectId);
+  if (!est.ok) return c.json({ error: est.error }, est.status);
+  const { scheduled } = await scheduleProject(projectId, startDate);
+  return c.json({ features: est.features, tasks: est.tasks, scheduled });
 });
 
 // 効率化調整 (US-014)。複数機能同時実施の重複削減を負の工数 1 行で表現する。
