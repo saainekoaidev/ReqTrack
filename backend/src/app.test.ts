@@ -124,6 +124,15 @@ describe('POST /api/tasks utilizationRate バリデーション', () => {
   });
 });
 
+describe('GET /api/fs/list (フォルダ参照)', () => {
+  it('指定フォルダのサブフォルダ一覧を返す', async () => {
+    const res = await app.request(`/api/fs/list?path=${encodeURIComponent(process.cwd())}`);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { entries: unknown[] };
+    expect(Array.isArray(json.entries)).toBe(true);
+  });
+});
+
 describe('PUT /api/settings 範囲制限', () => {
   it('範囲外(hoursPerDay=0)は 400', async () => {
     const res = await app.request('/api/settings', {

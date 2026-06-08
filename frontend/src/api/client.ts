@@ -172,6 +172,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<{ status: string }>('/api/health'),
 
+  // サーバ側フォルダブラウザ (US-031)
+  fsList: (path?: string) =>
+    request<{ path: string; parent: string | null; entries: { name: string; path: string }[] }>(
+      `/api/fs/list${path ? `?path=${encodeURIComponent(path)}` : ''}`,
+    ),
+
   // 全体設定 (US-027)
   getSettings: () => request<Settings>('/api/settings'),
   updateSettings: (input: Omit<Settings, 'id'>) =>

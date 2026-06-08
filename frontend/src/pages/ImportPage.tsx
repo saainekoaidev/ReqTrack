@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, type Project } from '../api/client';
+import FileDropField from '../components/FileDropField';
 
 // 取込画面 (US-019)。要件一覧/見積明細(テンプレ/自由体裁)・自然文 → 見積/ガントへ展開。
 export default function ImportPage() {
@@ -11,8 +12,8 @@ export default function ImportPage() {
   const [expand, setExpand] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const reqFile = useRef<HTMLInputElement>(null);
-  const estFile = useRef<HTMLInputElement>(null);
+  const [reqFileSel, setReqFileSel] = useState<File | null>(null);
+  const [estFileSel, setEstFileSel] = useState<File | null>(null);
 
   useEffect(() => {
     api
@@ -44,20 +45,18 @@ export default function ImportPage() {
   }
 
   async function importReqFile() {
-    const f = reqFile.current?.files?.[0];
-    if (!projectId || !f) return;
+    if (!projectId || !reqFileSel) return;
     try {
-      done(await api.importRequirementsFile(projectId, f, expand));
+      done(await api.importRequirementsFile(projectId, reqFileSel, expand));
     } catch (e) {
       setError(toMessage(e));
     }
   }
 
   async function importEstFile() {
-    const f = estFile.current?.files?.[0];
-    if (!projectId || !f) return;
+    if (!projectId || !estFileSel) return;
     try {
-      done(await api.importEstimateFile(projectId, f));
+      done(await api.importEstimateFile(projectId, estFileSel));
     } catch (e) {
       setError(toMessage(e));
     }
@@ -117,9 +116,15 @@ export default function ImportPage() {
 
       <div className="card">
         <h3>要件一覧ファイル(xlsx / csv)</h3>
-        <input ref={reqFile} type="file" accept=".xlsx,.csv" aria-label="要件一覧ファイル" />
+        <FileDropField
+          file={reqFileSel}
+          onFile={setReqFileSel}
+          accept=".xlsx,.csv"
+          ariaLabel="要件一覧ファイル"
+          placeholder="要件ファイルをドラッグ&ドロップ、または参照"
+        />
         <div className="dialog-actions">
-          <button type="button" onClick={importReqFile} disabled={!projectId}>
+          <button type="button" onClick={importReqFile} disabled={!projectId || !reqFileSel}>
             要件ファイルを取込
           </button>
         </div>
@@ -127,10 +132,16 @@ export default function ImportPage() {
 
       <div className="card">
         <h3>見積明細ファイル(xlsx / csv)</h3>
-        <input ref={estFile} type="file" accept=".xlsx,.csv" aria-label="見積明細ファイル" />
+        <FileDropField
+          file={estFileSel}
+          onFile={setEstFileSel}
+          accept=".xlsx,.csv"
+          ariaLabel="見積明細ファイル"
+          placeholder="見積明細ファイルをドラッグ&ドロップ、または参照"
+        />
         <p className="muted">WBS / タスク / 工程 / 工数 / 稼働率 / 担当 の列を見出しから判定します。</p>
         <div className="dialog-actions">
-          <button type="button" onClick={importEstFile} disabled={!projectId}>
+          <button type="button" onClick={importEstFile} disabled={!projectId || !estFileSel}>
             見積明細を取込
           </button>
         </div>
