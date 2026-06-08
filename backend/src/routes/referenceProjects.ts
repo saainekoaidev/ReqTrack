@@ -5,6 +5,14 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative, extname } from 'node:path';
 import { prisma } from '../db.js';
 import { isTextLike, shouldSkipDir, makeExcerpt } from '../domain/referenceScan.js';
+import { sanitizeFtsQuery } from '../domain/fts.js';
+
+// FTS5(trigram)索引を必要時に作成する (US-035)。仮想テーブルは Prisma スキーマ外。
+async function ensureFts(): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    `CREATE VIRTUAL TABLE IF NOT EXISTS "ReferenceFileFts" USING fts5(refId UNINDEXED, path, excerpt, tokenize='trigram')`,
+  );
+}
 
 // 参照資料プロジェクト (US-024)。既存改修の資料フォルダを登録・スキャンし見積の参照にする。
 export const referenceProjects = new Hono();
@@ -124,7 +132,56 @@ referenceProjects.post('/:id/scan', async (c) => {
   }
   await prisma.referenceProject.update({ where: { id }, data: { scannedAt: new Date() } });
 
+  // 全文検索インデックスを再構築 (US-035)
+  try {
+    await ensureFts();
+    await prisma.$executeRawUnsafe('DELETE FROM "ReferenceFileFts" WHERE refId = ?', id);
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "ReferenceFileFts"(refId, path, excerpt)
+       SELECT "referenceProjectId", "path", "excerpt" FROM "ReferenceFile"
+       WHERE "referenceProjectId" = ? AND "excerpt" IS NOT NULL`,
+      id,
+    );
+  } catch {
+    // FTS 非対応環境でもスキャン自体は成功扱い(検索のみ不可)
+  }
+
   return c.json({ scanned: collected.length, totalFiles, truncated });
+});
+
+// 全文検索 (US-035)。AI 見積の文脈取得に使う。
+const searchQuery = z.object({ q: z.string().min(1), limit: z.coerce.number().int().min(1).max(200).optional() });
+referenceProjects.get('/:id/search', zValidator('query', searchQuery), async (c) => {
+  const id = c.req.param('id');
+  const { q, limit = 50 } = c.req.valid('query');
+  const match = sanitizeFtsQuery(q);
+  let rows: { path: string; excerpt: string | null }[] = [];
+  if (match) {
+    try {
+      await ensureFts();
+      rows = await prisma.$queryRawUnsafe<{ path: string; excerpt: string | null }[]>(
+        `SELECT path, excerpt FROM "ReferenceFileFts" WHERE refId = ? AND "ReferenceFileFts" MATCH ? LIMIT ?`,
+        id,
+        match,
+        limit,
+      );
+    } catch {
+      rows = [];
+    }
+  }
+  // FTS が 0 件(短語/CJK 等)なら部分一致でフォールバック
+  if (rows.length === 0) {
+    const like = await prisma.referenceFile.findMany({
+      where: {
+        referenceProjectId: id,
+        OR: [{ excerpt: { contains: q } }, { path: { contains: q } }],
+      },
+      select: { path: true, excerpt: true },
+      take: limit,
+    });
+    rows = like;
+  }
+  return c.json(rows);
 });
 
 referenceProjects.delete('/:id', async (c) => {
