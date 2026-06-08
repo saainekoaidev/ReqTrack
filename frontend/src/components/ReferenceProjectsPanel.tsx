@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, type ReferenceProject } from '../api/client';
+import FolderField from './FolderField';
 
 // 参照資料プロジェクト管理 (US-024)。既存改修の資料フォルダを登録・スキャンする。
 export default function ReferenceProjectsPanel() {
@@ -104,18 +105,13 @@ export default function ReferenceProjectsPanel() {
         </table>
       )}
 
-      <form onSubmit={add} className="inline-form">
+      <form onSubmit={add} style={{ display: 'grid', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
         <input type="text" placeholder="名称(例: 既存GSSZ)" aria-label="参照資料名称" value={name} onChange={(e) => setName(e.target.value)} />
-        <input
-          type="text"
-          placeholder="資料フォルダのパス(例: C:\\proj\\docs)"
-          aria-label="資料フォルダのパス"
-          value={rootPath}
-          onChange={(e) => setRootPath(e.target.value)}
-          style={{ flex: '1 1 320px' }}
-        />
+        <FolderField value={rootPath} onChange={setRootPath} ariaLabel="資料フォルダのパス" />
         <input type="text" placeholder="メモ(任意)" aria-label="参照資料メモ" value={note} onChange={(e) => setNote(e.target.value)} />
-        <button type="submit">登録</button>
+        <div>
+          <button type="submit">登録</button>
+        </div>
       </form>
     </div>
   );

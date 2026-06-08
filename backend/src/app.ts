@@ -9,6 +9,7 @@ import { requirements } from './routes/requirements.js';
 import { dailyReports } from './routes/dailyReports.js';
 import { referenceProjects } from './routes/referenceProjects.js';
 import { settings } from './routes/settings.js';
+import { fsBrowse } from './routes/fs.js';
 
 // アプリ生成を関数化してテスト(app.request)から再利用できるようにする。
 export function createApp() {
@@ -23,6 +24,7 @@ export function createApp() {
   app.route('/api/daily-reports', dailyReports);
   app.route('/api/reference-projects', referenceProjects);
   app.route('/api/settings', settings);
+  app.route('/api/fs', fsBrowse);
   app.route('/api/members', members);
   app.route('/api/holidays', holidays);
   app.route('/api/tasks', tasks);

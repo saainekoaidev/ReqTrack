@@ -608,6 +608,77 @@ button:disabled {
   color: var(--color-text);
 }
 
+/* 1行の参照/D&D フィールド (US-031) */
+.dropline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  transition: border-color 0.1s ease, background 0.1s ease;
+}
+
+.dropline.is-over {
+  border: 1px dashed var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.dropline-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+}
+
+.dropline-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  min-width: 0;
+}
+
+.dropline-browse {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fs-list {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  margin: var(--space-2) 0;
+}
+
+.fs-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font: inherit;
+}
+
+.fs-item:hover {
+  background: var(--color-primary-soft);
+}
+
 .muted {
   color: var(--color-text-muted);
 }
