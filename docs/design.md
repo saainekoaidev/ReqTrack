@@ -53,6 +53,7 @@ reqtrack/
 | POST | `/api/reference-projects/:id/scan` | 資料フォルダをスキャンし読取り | US-024 |
 | DELETE | `/api/reference-projects/:id` | 参照資料プロジェクト削除 | US-024 |
 | GET | `/api/projects/:id` | プロジェクト取得 | US-001 |
+| DELETE | `/api/projects/:id` | プロジェクト削除(配下を連動削除) | US-030 |
 | POST | `/api/projects/:id/expand-reviews` | レビュー自動展開(機能ごとに PL レビュー) | US-014 |
 | POST | `/api/projects/:id/efficiency` | 効率化調整(負の工数 1 行) | US-014 |
 | POST | `/api/projects/:id/import/requirements-text` | 自然文→要件(任意で標準工程展開) | US-019 |
