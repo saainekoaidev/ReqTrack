@@ -21,7 +21,7 @@
 ルーティングは `react-router-dom` (`frontend/src/main.tsx`)。**US-021 でシェルを刷新**:
 - `/` ランディング(入口分離): 新規作成 / 進捗管理 / 設定
 - `/create/*` 新規作成系(ヘッダ + コンテンツ。ステッパーは US-023): new(index)/requirements/import/tasks/estimate/wbs
-- `/manage/*` 進捗管理系(共通シェル: ヘッダ右上に参照プロジェクト選択 `ProjectContext`、左ペインメニュー): gantt/reports/daily/delays
+- `/manage/*` 進捗管理系(共通シェル: ヘッダ右上に参照プロジェクト選択 `ProjectContext`、左ペインメニュー): gantt/reports/daily/delays。**ガント(計画済みタスク)を持つプロジェクトが無い場合は遷移不可で案内表示 (US-032)**
 - `/settings` 設定(US-021 暫定、US-022 でタブ化)
 - テーマは淡い緑系統、フォントは M PLUS Rounded 1c、アイコンは自前 SVG ピクトグラム (`components/Icon.tsx`)。
 

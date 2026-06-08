@@ -253,6 +253,18 @@ h4 {
   border-color: var(--color-accent);
 }
 
+.entry-tile.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--color-bg);
+}
+
+.entry-tile.is-disabled:hover {
+  transform: none;
+  box-shadow: var(--shadow);
+  border-color: var(--color-border);
+}
+
 .entry-tile .tile-icon {
   width: 48px;
   height: 48px;

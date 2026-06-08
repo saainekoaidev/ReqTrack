@@ -7,6 +7,7 @@ interface ProjectCtx {
   projectId: string;
   setProjectId: (id: string) => void;
   reload: () => void;
+  loaded: boolean;
 }
 
 const Ctx = createContext<ProjectCtx | null>(null);
@@ -14,6 +15,7 @@ const STORAGE_KEY = 'reqtrack.projectId';
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [projectId, setProjectIdState] = useState<string>(
     () => localStorage.getItem(STORAGE_KEY) ?? '',
   );
@@ -34,13 +36,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           if (next) localStorage.setItem(STORAGE_KEY, next);
           return next;
         });
+        setLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => setLoaded(true));
   }
 
   useEffect(reload, []);
 
-  return <Ctx.Provider value={{ projects, projectId, setProjectId, reload }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ projects, projectId, setProjectId, reload, loaded }}>{children}</Ctx.Provider>
+  );
 }
 
 export function useProject(): ProjectCtx {

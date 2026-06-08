@@ -27,7 +27,14 @@ const projectInput = z.object({
 
 projects.get('/', async (c) => {
   const list = await prisma.project.findMany({ orderBy: { createdAt: 'desc' } });
-  return c.json(list);
+  // 各プロジェクトがガント(計画済みタスク)を持つか (US-032)
+  const grp = await prisma.task.groupBy({
+    by: ['projectId'],
+    where: { plannedStart: { not: null } },
+    _count: { _all: true },
+  });
+  const scheduled = new Set(grp.map((g) => g.projectId));
+  return c.json(list.map((p) => ({ ...p, hasSchedule: scheduled.has(p.id) })));
 });
 
 projects.post('/', zValidator('json', projectInput), async (c) => {

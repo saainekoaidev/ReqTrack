@@ -9,7 +9,7 @@ test('ランディングから各入口へ遷移できる', async ({ page }) => 
   await page.getByRole('link', { name: /新規作成/ }).click();
   await expect(page.getByRole('heading', { name: '新規プロジェクト' })).toBeVisible();
 
-  // 進捗管理系へ(左ペインメニュー)
+  // 進捗管理: ガントを持つプロジェクトが無い場合は案内が出る(US-032)
   await page.goto('/manage');
-  await expect(page.getByRole('navigation', { name: '進捗管理メニュー' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '表示できるガントがありません' })).toBeVisible();
 });
