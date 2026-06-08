@@ -4,7 +4,7 @@ import {
   detectDelay,
   delayedMembers,
   scheduleTasks,
-  spanWorkingDays,
+  workingDaysNeeded,
   normalizeUtilization,
   isWorkingDay,
   nextWorkingDay,
@@ -13,6 +13,11 @@ import {
   type PlannedTask,
   type RecoveryTask,
 } from './schedule.js';
+
+// 時刻まで含めて比較するためのヘルパ(UTC, 例: 2026-06-08T09:00)
+function key(d: Date): string {
+  return d.toISOString().slice(0, 16);
+}
 
 const base: PlannedTask = {
   id: 't1',
@@ -73,12 +78,13 @@ describe('isWorkingDay / nextWorkingDay', () => {
   });
 });
 
-describe('spanWorkingDays / normalizeUtilization (US-012 稼働率)', () => {
-  it('期間 = ceil(工数 ÷ 稼働率)', () => {
-    expect(spanWorkingDays(3, 1)).toBe(3); // 専従3人日 → 3営業日
-    expect(spanWorkingDays(0.6, 0.2)).toBe(3); // 20% → 3営業日
-    expect(spanWorkingDays(3, 0.75)).toBe(4); // 2.25日 → 切上げ4営業日
-    expect(spanWorkingDays(0, 1)).toBe(1); // 最低1
+describe('workingDaysNeeded / normalizeUtilization (US-012 / US-040 稼働率・小数日)', () => {
+  it('稼働日数 = 工数 ÷ 稼働率(切り上げない)', () => {
+    expect(workingDaysNeeded(3, 1)).toBe(3); // 専従3人日 → 3.0営業日
+    expect(workingDaysNeeded(0.6, 0.2)).toBeCloseTo(3, 9); // 20% → 3.0
+    expect(workingDaysNeeded(3, 0.75)).toBe(4); // 2.25日相当 → 4.0
+    expect(workingDaysNeeded(0.5, 1)).toBe(0.5); // 小数はそのまま
+    expect(workingDaysNeeded(0, 1)).toBe(0);
   });
   it('稼働率は 0<r<=1 に正規化', () => {
     expect(normalizeUtilization(undefined)).toBe(1);
@@ -88,46 +94,63 @@ describe('spanWorkingDays / normalizeUtilization (US-012 稼働率)', () => {
   });
 });
 
-describe('scheduleTasks (稼働率反映)', () => {
-  it('稼働率20%のタスクは期間が伸びる', () => {
+describe('scheduleTasks (小数日・連続割付, US-040)', () => {
+  it('稼働率20%のタスク(0.6人日)は3稼働日ぴったり(始業〜終業)', () => {
     const start = new Date('2026-06-08T00:00:00Z'); // Mon
-    // 0.6人日 ÷ 0.2 = 3営業日 → Mon-Wed
-    const r = scheduleTasks([{ id: 'a', estimateDays: 0.6, utilizationRate: 0.2 }], start);
-    expect(toDateKey(r[0]!.plannedStart)).toBe('2026-06-08');
-    expect(toDateKey(r[0]!.plannedEnd)).toBe('2026-06-10');
+    const r = scheduleTasks([{ id: 'a', estimateDays: 0.6, utilizationRate: 0.2 }], start, new Set(), 8);
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00'); // Mon 始業
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-10T17:00'); // Wed 終業(3稼働日=24h)
   });
-});
 
-describe('scheduleTasks', () => {
-  it('見積を稼働日ベースで直列に割り付ける(週末をスキップ)', () => {
+  it('0.5人日は半日(始業9:00〜13:00)に割り付け、次タスクは13:00から連続', () => {
+    const start = new Date('2026-06-08T00:00:00Z'); // Mon, 8h/日
+    const r = scheduleTasks(
+      [
+        { id: 'a', estimateDays: 0.5 },
+        { id: 'b', estimateDays: 0.25 },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00');
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-08T13:00'); // 4h
+    expect(key(r[1]!.plannedStart)).toBe('2026-06-08T13:00'); // 連続(コマ無し)
+    expect(key(r[1]!.plannedEnd)).toBe('2026-06-08T15:00'); // +2h
+  });
+
+  it('整数日タスクは始業〜終業で直列・週末をスキップ', () => {
     const start = new Date('2026-06-08T00:00:00Z'); // Mon
-    const result = scheduleTasks(
+    const r = scheduleTasks(
       [
         { id: 'a', estimateDays: 3 },
         { id: 'b', estimateDays: 2 },
         { id: 'c', estimateDays: 1 },
       ],
       start,
+      new Set(),
+      8,
     );
-    expect(result.map((r) => [r.id, toDateKey(r.plannedStart), toDateKey(r.plannedEnd)])).toEqual([
-      ['a', '2026-06-08', '2026-06-10'], // Mon-Wed
-      ['b', '2026-06-11', '2026-06-12'], // Thu-Fri
-      ['c', '2026-06-15', '2026-06-15'], // 次の月曜
+    expect(r.map((x) => [x.id, key(x.plannedStart), key(x.plannedEnd)])).toEqual([
+      ['a', '2026-06-08T09:00', '2026-06-10T17:00'], // Mon-Wed
+      ['b', '2026-06-11T09:00', '2026-06-12T17:00'], // Thu-Fri
+      ['c', '2026-06-15T09:00', '2026-06-15T17:00'], // 次の月曜
     ]);
   });
 
   it('祝日をスキップする', () => {
     const start = new Date('2026-06-08T00:00:00Z');
-    const result = scheduleTasks([{ id: 'a', estimateDays: 2 }], start, new Set(['2026-06-09']));
-    // Mon は稼働、Tue(09) は祝日 → Mon + Wed の 2 稼働日
-    expect(toDateKey(result[0]!.plannedStart)).toBe('2026-06-08');
-    expect(toDateKey(result[0]!.plannedEnd)).toBe('2026-06-10');
+    const r = scheduleTasks([{ id: 'a', estimateDays: 2 }], start, new Set(['2026-06-09']), 8);
+    // Mon 稼働、Tue(09)祝日 → Mon + Wed
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00');
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-10T17:00');
   });
 
-  it('見積0でも最低1稼働日を割り当てる', () => {
-    const result = scheduleTasks([{ id: 'a', estimateDays: 0 }], new Date('2026-06-08T00:00:00Z'));
-    expect(toDateKey(result[0]!.plannedStart)).toBe('2026-06-08');
-    expect(toDateKey(result[0]!.plannedEnd)).toBe('2026-06-08');
+  it('日内に収まらない端数は翌稼働日へ繰り越す(1.5人日)', () => {
+    const start = new Date('2026-06-08T00:00:00Z'); // Mon
+    const r = scheduleTasks([{ id: 'a', estimateDays: 1.5 }], start, new Set(), 8);
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00');
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-09T13:00'); // 8h + 4h
   });
 });
 

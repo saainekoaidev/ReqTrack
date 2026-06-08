@@ -86,7 +86,7 @@ function ManageInner() {
             </NavLink>
           ))}
         </nav>
-        <main className="shell-content">
+        <main className="shell-content shell-content--wide">
           <Outlet />
         </main>
       </div>

@@ -691,6 +691,164 @@ button:disabled {
   color: var(--color-text);
 }
 
+/* Gantt 刷新 (US-040): 左=WBS3階層表(折り畳み) / 右=稼働時間軸の連続バー */
+.shell-content--wide {
+  max-width: none;
+}
+
+.gantt2-card {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.gantt2 {
+  width: 100%;
+  font-size: 0.78rem;
+}
+
+.g2-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 28px;
+}
+
+.g2-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.g2-left {
+  flex: 0 0 auto;
+  display: grid;
+}
+
+.g2-cell {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.72rem;
+}
+
+.g2-num {
+  justify-content: flex-end;
+}
+
+.g2-name {
+  gap: 2px;
+}
+
+.g2-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g2-toggle {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.6rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.g2-toggle-spacer {
+  display: inline-block;
+  width: 16px;
+  flex: 0 0 auto;
+}
+
+.g2-span {
+  justify-content: center;
+}
+
+.g2-chart {
+  flex: 1 1 0;
+  position: relative;
+  min-width: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.g2-month {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-primary-soft);
+  font-size: 0.7rem;
+  overflow: hidden;
+}
+
+.g2-day {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--color-border);
+  line-height: 1.05;
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+}
+
+.g2-wd {
+  font-size: 0.56rem;
+}
+
+.g2-bar {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.g2-bar.is-summary {
+  height: 7px;
+  background: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+  opacity: 0.55;
+  border-radius: 3px;
+}
+
+.g2-bar-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--color-primary);
+  opacity: 0.55;
+}
+
+.g2-bar-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 4px;
+  font-size: 0.62rem;
+  color: var(--color-text);
+}
+
 /* 1行の参照/D&D フィールド (US-031) */
 .dropline {
   display: flex;

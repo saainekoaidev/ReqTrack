@@ -228,45 +228,96 @@ export function normalizeUtilization(rate: number | undefined | null): number {
   return Math.min(1, rate);
 }
 
-/**
- * 工数(人日)と稼働率からカレンダー上の所要営業日数を算出する (US-012)。
- * 期間(営業日) = ceil(工数 ÷ 稼働率)。最低 1 営業日。
- * 例: 工数 0.6 人日 ÷ 稼働率 0.2 = 3 営業日。工数 3 人日 ÷ 1.0 = 3 営業日。
- */
-export function spanWorkingDays(estimateDays: number, utilizationRate?: number): number {
+const HOUR_MS = 60 * 60 * 1000;
+/** 始業時刻(UTC基準, 既定 9 時)。小数日のバー描画と整合させる。 */
+export const DAY_START_HOUR = 9;
+
+/** 工数(人日)と稼働率から必要な稼働日数(小数, 切り上げない)を返す (US-012 / US-040)。
+ * 稼働日数 = 工数 ÷ 稼働率。例: 0.6人日 ÷ 0.2 = 3.0、3人日 ÷ 0.75 = 4.0、1人日 ÷ 1 = 1.0、0.5人日 ÷ 1 = 0.5。 */
+export function workingDaysNeeded(estimateDays: number, utilizationRate?: number): number {
   const effort = Math.max(0, estimateDays || 0);
   const rate = normalizeUtilization(utilizationRate);
-  return Math.max(1, Math.ceil(effort / rate));
+  return effort / rate;
+}
+
+function utcMidnight(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+function atHour(dayMidnight: Date, hour: number): Date {
+  return new Date(dayMidnight.getTime() + hour * HOUR_MS);
+}
+
+/** カーソルを「稼働日の勤務時間内の開始位置」へ丸める(非稼働日・時間外なら次の稼働日始業へ)。 */
+function rollToWorkStart(
+  cursor: Date,
+  holidays: ReadonlySet<string>,
+  hoursPerDay: number,
+  dayStartHour: number,
+): Date {
+  const dayEndHour = dayStartHour + hoursPerDay;
+  let c = new Date(cursor.getTime());
+  for (let i = 0; i < 4000; i++) {
+    const day = utcMidnight(c);
+    if (!isWorkingDay(day, holidays)) {
+      c = atHour(nextWorkingDay(new Date(day.getTime() + DAY_MS), holidays), dayStartHour);
+      continue;
+    }
+    const hour = (c.getTime() - day.getTime()) / HOUR_MS;
+    if (hour < dayStartHour) {
+      c = atHour(day, dayStartHour);
+      break;
+    }
+    if (hour >= dayEndHour - 1e-9) {
+      c = atHour(nextWorkingDay(new Date(day.getTime() + DAY_MS), holidays), dayStartHour);
+      continue;
+    }
+    break;
+  }
+  return c;
 }
 
 /**
- * 見積(人日)と稼働率からタスクを直列にスケジューリングする (US-004 / US-012)。
- * - 稼働日(土日・祝日を除く)のみカウント
- * - 各タスクの所要営業日数 = spanWorkingDays(工数, 稼働率)
- * - 前タスクの終了の翌稼働日から次タスクを開始する(直列)
+ * 見積(人日)と稼働率からタスクを直列にスケジューリングする (US-004 / US-012 / US-040)。
+ * - 稼働日(土日・祝日を除く)の勤務時間内に、小数人日をそのまま(切り上げずに)割り付ける
+ * - 前タスクの終了時刻から次タスクを連続して開始する(コマ区切り無し、隙間無し)
+ * - plannedStart/End は時刻まで保持する(例: 0.5人日 → 始業 9:00〜13:00)
  */
 export function scheduleTasks(
   tasks: EstimatedTask[],
   startDate: Date,
   holidays: ReadonlySet<string> = new Set(),
+  hoursPerDay = 8,
+  dayStartHour = DAY_START_HOUR,
 ): ScheduledTask[] {
+  const dayEndHour = dayStartHour + hoursPerDay;
   const result: ScheduledTask[] = [];
-  let cursor = nextWorkingDay(startDate, holidays);
+  let cursor = rollToWorkStart(
+    atHour(utcMidnight(startDate), dayStartHour),
+    holidays,
+    hoursPerDay,
+    dayStartHour,
+  );
 
   for (const task of tasks) {
-    const duration = spanWorkingDays(task.estimateDays, task.utilizationRate);
-    const plannedStart = nextWorkingDay(cursor, holidays);
-    let counted = 1;
-    let day = new Date(plannedStart.getTime());
-    while (counted < duration) {
-      day.setTime(day.getTime() + DAY_MS);
-      day = nextWorkingDay(day, holidays);
-      counted += 1;
+    cursor = rollToWorkStart(cursor, holidays, hoursPerDay, dayStartHour);
+    const plannedStart = new Date(cursor.getTime());
+    let remainingHours = workingDaysNeeded(task.estimateDays, task.utilizationRate) * hoursPerDay;
+    let cur = new Date(cursor.getTime());
+    while (remainingHours > 1e-9) {
+      const day = utcMidnight(cur);
+      const dayEnd = atHour(day, dayEndHour);
+      const avail = (dayEnd.getTime() - cur.getTime()) / HOUR_MS;
+      if (remainingHours <= avail + 1e-9) {
+        cur = new Date(cur.getTime() + remainingHours * HOUR_MS);
+        remainingHours = 0;
+      } else {
+        remainingHours -= avail;
+        cur = atHour(nextWorkingDay(new Date(day.getTime() + DAY_MS), holidays), dayStartHour);
+      }
     }
-    const plannedEnd = day;
+    const plannedEnd = new Date(cur.getTime());
     result.push({ id: task.id, plannedStart, plannedEnd });
-    // 次タスクは終了の翌日(以降の最初の稼働日)から
-    cursor = nextWorkingDay(new Date(plannedEnd.getTime() + DAY_MS), holidays);
+    cursor = new Date(plannedEnd.getTime());
   }
 
   return result;

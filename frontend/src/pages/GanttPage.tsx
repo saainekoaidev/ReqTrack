@@ -106,8 +106,8 @@ export default function GanttPage() {
         </div>
       )}
 
-      <div className="card gantt-card">
-        <GanttChart tasks={tasks} holidays={holidays} />
+      <div className="card">
+        <GanttChart tasks={tasks} holidays={holidays} hoursPerDay={hoursPerDay} />
       </div>
 
       {workload.length > 0 && (
