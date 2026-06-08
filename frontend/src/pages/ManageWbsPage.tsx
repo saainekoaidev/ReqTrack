@@ -74,6 +74,7 @@ export default function ManageWbsPage() {
         <h3>スケジュール再生成</h3>
         <p className="muted" style={{ marginTop: 0 }}>
           開始日を起点に、同じ対象配下は工程順に直列、同じ担当は直列(別担当は並行)で全タスクを割り付け直します。
+          <strong>進捗が入ったタスクは固定</strong>(完了=計画日固定、着手中=開始固定で工数変更分だけ終了が伸縮)され、未着手タスクのみが流れます。
         </p>
         <div className="inline-form" style={{ marginTop: 0 }}>
           <label>
