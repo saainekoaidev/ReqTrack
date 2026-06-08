@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type Task } from '../api/client';
+import { api, type Member, type Task } from '../api/client';
 import { useCreate } from '../context/CreateContext';
 import { effortHours, spanWorkingDays, round3 } from '../lib/estimate';
 
-// 3. 見積・ガント生成 (US-036 / US-037 / US-038)。
-// 起点を選び(AIガント/AI見積/手組み)、WBS はこの選択後に生成する。見積調整とガント生成もここ。
+// 3. 見積・ガント生成 (US-036 / US-037 / US-038 / US-039)。
+// AI見積はガントへ直行せず、見積内容(工数/稼働率/見積根拠/担当)を確認・補正してから
+// 「この見積でガントを作成」で承認してガントを生成する。
 type Draft = { estimate: string; util: string };
 
 export default function EstimatePage() {
@@ -14,6 +15,7 @@ export default function EstimatePage() {
   const projectId = draft?.id ?? '';
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [minStep, setMinStep] = useState(0.1);
   const [startDate, setStartDate] = useState('2026-06-08');
@@ -22,6 +24,7 @@ export default function EstimatePage() {
 
   useEffect(() => {
     api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
+    api.listMembers().then(setMembers).catch(() => {});
   }, []);
 
   function loadTasks() {
@@ -54,30 +57,15 @@ export default function EstimatePage() {
     navigate('/manage/gantt');
   }
 
-  // 要件 → AI見積 → スケジュール割付 を一気通貫で実行しガントへ (US-037)
-  async function aiPlanAndGo() {
-    if (!projectId) return;
-    setMessage('AI で要件から見積・スケジュールを生成中です(数十秒かかることがあります)…');
-    try {
-      const r = await api.aiPlan(projectId, startDate);
-      setMessage(
-        `AI で生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件 / 計画済み ${r.scheduled} 件。ガントへ移動します。`,
-      );
-      setError(null);
-      finishToGantt();
-    } catch (e) {
-      setMessage(null);
-      setError(toMessage(e));
-    }
-  }
-
-  // AI で見積だけ生成(後で調整) (US-036)
-  async function aiEstimateOnly() {
+  // AI で見積を生成 (US-036 / US-039)。生成後はガントへ直行せず、下の表で確認・補正する。
+  async function aiGenerate() {
     if (!projectId) return;
     setMessage('AI で見積を生成中です(数十秒かかることがあります)…');
     try {
       const r = await api.aiEstimate(projectId);
-      setMessage(`AI 見積を生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件。下の表で調整できます。`);
+      setMessage(
+        `AI 見積を生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件。内容を確認・補正し、よければ「この見積でガントを作成」を押してください。`,
+      );
       setError(null);
       loadTasks();
     } catch (e) {
@@ -123,6 +111,17 @@ export default function EstimatePage() {
     try {
       await api.addEfficiency(projectId, { estimateDays, note });
       loadTasks();
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
+
+  // 見積根拠・担当の補正 (US-039)
+  async function patch(taskId: string, data: Parameters<typeof api.updateTask>[1]) {
+    try {
+      const updated = await api.updateTask(taskId, data);
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
       setError(null);
     } catch (e) {
       setError(toMessage(e));
@@ -193,20 +192,18 @@ export default function EstimatePage() {
       </div>
 
       <div className="card">
-        <h3>生成方法を選ぶ</h3>
+        <h3>AI で見積を作る</h3>
         <p className="muted" style={{ marginTop: 0 }}>
-          ここで WBS(タスク)を作ります。AI は Claude Code(現在のご契約の使用量枠)で実行し、追加課金の
-          API は使いません。
+          要件(既存改修は参照資料も)から、機能・工程・工数・見積根拠を生成して下の表に展開します。
+          <strong>ここではガントは作りません。</strong>内容を確認・補正してから「この見積でガントを作成」で確定します。
+          AI は Claude Code(現在のご契約の使用量枠)で実行し、追加課金の API は使いません。
         </p>
         <div className="inline-form" style={{ marginTop: 0, flexWrap: 'wrap' }}>
-          <button type="button" onClick={aiPlanAndGo}>
-            AI で要件からガントまで生成
-          </button>
-          <button type="button" className="btn-secondary" onClick={aiEstimateOnly}>
-            AI で見積だけ生成(後で調整)
+          <button type="button" onClick={aiGenerate}>
+            AI で見積を生成
           </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/create/wbs')}>
-            手で WBS を組む(ガントから)
+            手で WBS を組む(AIを使わない)
           </button>
         </div>
       </div>
@@ -214,7 +211,7 @@ export default function EstimatePage() {
       {tasks.length > 0 && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>タスク見積</h3>
+            <h3>見積を確認・補正する</h3>
             <span style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <button type="button" className="btn-secondary" onClick={expandReviews}>
                 レビューを自動展開
@@ -224,6 +221,9 @@ export default function EstimatePage() {
               </button>
             </span>
           </div>
+          <p className="muted" style={{ marginTop: 0 }}>
+            工数・稼働率・見積根拠・担当を確認し、必要なら直してください。担当はここで割り付けます。
+          </p>
           <table className="data-table">
             <thead>
               <tr>
@@ -232,7 +232,8 @@ export default function EstimatePage() {
                 <th>工程</th>
                 <th>工数(人日)</th>
                 <th>稼働率</th>
-                <th>時間</th>
+                <th>見積根拠</th>
+                <th>担当</th>
                 <th>期間(営業日)</th>
                 <th></th>
               </tr>
@@ -287,8 +288,40 @@ export default function EstimatePage() {
                         />
                       )}
                     </td>
-                    <td>{isGroup ? '' : `${effortHours(est)} h`}</td>
-                    <td>{isGroup ? '' : `${spanWorkingDays(est, util)} 日`}</td>
+                    <td>
+                      {!isGroup && (
+                        <input
+                          type="text"
+                          defaultValue={t.estimateNote ?? ''}
+                          placeholder="工数推定の根拠"
+                          aria-label={`${t.name} の見積根拠`}
+                          onBlur={(e) => {
+                            if (e.target.value !== (t.estimateNote ?? ''))
+                              patch(t.id, { estimateNote: e.target.value || null });
+                          }}
+                          style={{ width: '100%', minWidth: '12rem' }}
+                        />
+                      )}
+                    </td>
+                    <td>
+                      {!isGroup && (
+                        <select
+                          aria-label={`${t.name} の担当`}
+                          value={t.assigneeId ?? ''}
+                          onChange={(e) => patch(t.id, { assigneeId: e.target.value || null })}
+                        >
+                          <option value="">(未割当)</option>
+                          {members.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td title={isGroup ? '' : `${effortHours(est)} h`}>
+                      {isGroup ? '' : `${spanWorkingDays(est, util)} 日`}
+                    </td>
                     <td>
                       {!isGroup && (
                         <button type="button" onClick={() => save(t.id)}>
@@ -303,7 +336,7 @@ export default function EstimatePage() {
             <tfoot>
               <tr>
                 <th>合計</th>
-                <td colSpan={7}>{total} 人日</td>
+                <td colSpan={8}>{total} 人日</td>
               </tr>
             </tfoot>
           </table>
@@ -312,9 +345,10 @@ export default function EstimatePage() {
 
       {tasks.length > 0 && (
         <div className="card">
-          <h3>ガントを生成</h3>
+          <h3>この見積でガントを作成</h3>
           <p className="muted" style={{ marginTop: 0 }}>
-            見積(人日)と稼働率から、土日・祝日を除いた稼働日でタスクを割り付け、ガントを作成します。
+            上の見積でよければ、開始日を決めてガントを作成します。見積(人日)と稼働率から、土日・祝日を除いた
+            稼働日でタスクを割り付けます。
           </p>
           <div className="inline-form" style={{ marginTop: 0 }}>
             <label>
@@ -327,7 +361,7 @@ export default function EstimatePage() {
               />
             </label>
             <button type="button" onClick={generateAndGo}>
-              ガントを生成して進捗管理へ →
+              この見積でガントを作成 →
             </button>
           </div>
         </div>
