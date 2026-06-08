@@ -215,6 +215,89 @@ describe('scheduleTasks (要員・依存, US-041)', () => {
   });
 });
 
+describe('scheduleTasks (進捗のあるタスクの固定, US-042)', () => {
+  const start = new Date('2026-06-15T00:00:00Z'); // 再生成の開始日(月)
+
+  it('完了(100%)タスクは開始日を変えても元の計画日を固定する', () => {
+    const r = scheduleTasks(
+      [
+        {
+          id: 'done',
+          estimateDays: 1,
+          progress: 100,
+          fixedStart: new Date('2026-06-08T09:00:00Z'),
+          fixedEnd: new Date('2026-06-08T17:00:00Z'),
+        },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00');
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-08T17:00');
+  });
+
+  it('着手中(50%)は開始固定で、工数増は終了を伸ばす', () => {
+    const r = scheduleTasks(
+      [
+        {
+          id: 'wip',
+          estimateDays: 2, // 元1人日→2人日に増やした想定
+          progress: 50,
+          fixedStart: new Date('2026-06-08T09:00:00Z'),
+          fixedEnd: new Date('2026-06-08T17:00:00Z'),
+        },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00'); // 開始は固定
+    expect(key(r[0]!.plannedEnd)).toBe('2026-06-09T17:00'); // 2人日に伸長
+  });
+
+  it('着手中タスクの後続(未着手)はアンカー終了後から流れる(前段挿入で押し戻さない)', () => {
+    const r = scheduleTasks(
+      [
+        // 同一対象内: 着手中の作業(アンカー) → 未着手の前段挿入/後続
+        {
+          id: 'wip',
+          estimateDays: 1,
+          groupKey: 'tgt',
+          progress: 30,
+          fixedStart: new Date('2026-06-08T09:00:00Z'),
+          fixedEnd: new Date('2026-06-08T17:00:00Z'),
+        },
+        { id: 'next', estimateDays: 1, groupKey: 'tgt', progress: 0 },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-08T09:00'); // 着手中は固定
+    // 後続は「アンカー終了」と「開始日」の遅い方から → 開始日(06-15)起点
+    expect(key(r[1]!.plannedStart)).toBe('2026-06-15T09:00');
+  });
+
+  it('進捗0%は固定せず開始日から引き直す', () => {
+    const r = scheduleTasks(
+      [
+        {
+          id: 'a',
+          estimateDays: 1,
+          progress: 0,
+          fixedStart: new Date('2026-06-08T09:00:00Z'),
+          fixedEnd: new Date('2026-06-08T17:00:00Z'),
+        },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    expect(key(r[0]!.plannedStart)).toBe('2026-06-15T09:00'); // 開始日へ
+  });
+});
+
 describe('buildRecoveryPlan', () => {
   const now = new Date('2026-06-06T00:00:00Z'); // 10日タスクの中間 → 期待50%
   const baseTask: RecoveryTask = {

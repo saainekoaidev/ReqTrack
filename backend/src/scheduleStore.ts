@@ -27,6 +27,10 @@ export async function scheduleProject(
       // 依存: 同一対象(親)配下を工程順に直列。要員: 同一担当を直列。
       groupKey: t.parentId ?? undefined,
       resourceKey: t.assigneeId ?? undefined,
+      // 進捗のあるタスクは開始を固定(再生成で未来へ動かさない) (US-042)
+      progress: t.progress,
+      fixedStart: t.plannedStart,
+      fixedEnd: t.plannedEnd,
     })),
     new Date(`${startDate}T00:00:00.000Z`),
     holidays,

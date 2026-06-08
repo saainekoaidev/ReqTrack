@@ -218,6 +218,11 @@ export interface EstimatedTask {
   groupKey?: string;
   /** 要員。同じ resourceKey は直列。未指定/未割当は共通プールで直列。 */
   resourceKey?: string;
+  /** 実績進捗率 0-100。0 より大きいと「着手済み」として開始日を固定する (US-042)。 */
+  progress?: number;
+  /** 既存の計画開始/終了。着手済み/完了タスクのアンカーに使う (US-042)。 */
+  fixedStart?: Date | null;
+  fixedEnd?: Date | null;
 }
 
 const UNASSIGNED_KEY = '__unassigned__';
@@ -333,30 +338,43 @@ export function scheduleTasks(
   const groupLastEnd = new Map<string, Date>();
   const resourceLastEnd = new Map<string, Date>();
 
+  const laterOf = (a: Date | undefined, b: Date): Date =>
+    a && a.getTime() > b.getTime() ? a : b;
+
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i]!;
     const groupKey = task.groupKey ?? `__task_${i}__`; // 未指定は依存なし(自分専用)
     const resourceKey = task.resourceKey ?? UNASSIGNED_KEY;
-
-    let earliest = base.getTime();
-    const g = groupLastEnd.get(groupKey);
-    if (g) earliest = Math.max(earliest, g.getTime());
-    const r = resourceLastEnd.get(resourceKey);
-    if (r) earliest = Math.max(earliest, r.getTime());
-
-    const plannedStart = rollToWorkStart(new Date(earliest), holidays, hoursPerDay, dayStartHour);
     const occHours = workingDaysNeeded(task.estimateDays, task.utilizationRate) * hoursPerDay;
-    const plannedEnd = advanceWorkingHours(
-      plannedStart,
-      occHours,
-      holidays,
-      hoursPerDay,
-      dayStartHour,
-    );
+    const progress = task.progress ?? 0;
+    // 着手済み(進捗>0)で既存開始があるタスクはアンカー(開始固定) (US-042)
+    const anchored = progress > 0 && task.fixedStart != null;
+
+    let plannedStart: Date;
+    let plannedEnd: Date;
+    if (anchored) {
+      plannedStart = new Date(task.fixedStart!.getTime());
+      if (progress >= 100 && task.fixedEnd) {
+        // 完了タスクは終了も固定
+        plannedEnd = new Date(task.fixedEnd.getTime());
+      } else {
+        // 着手中は開始固定のまま、工数に応じて終了を伸縮
+        plannedEnd = advanceWorkingHours(plannedStart, occHours, holidays, hoursPerDay, dayStartHour);
+      }
+    } else {
+      let earliest = base.getTime();
+      const g = groupLastEnd.get(groupKey);
+      if (g) earliest = Math.max(earliest, g.getTime());
+      const r = resourceLastEnd.get(resourceKey);
+      if (r) earliest = Math.max(earliest, r.getTime());
+      plannedStart = rollToWorkStart(new Date(earliest), holidays, hoursPerDay, dayStartHour);
+      plannedEnd = advanceWorkingHours(plannedStart, occHours, holidays, hoursPerDay, dayStartHour);
+    }
 
     result.push({ id: task.id, plannedStart, plannedEnd });
-    groupLastEnd.set(groupKey, plannedEnd);
-    resourceLastEnd.set(resourceKey, plannedEnd);
+    // 後続の起点には「これまでの最遅終了」を使う(アンカーが早くても鎖は巻き戻さない)
+    groupLastEnd.set(groupKey, laterOf(groupLastEnd.get(groupKey), plannedEnd));
+    resourceLastEnd.set(resourceKey, laterOf(resourceLastEnd.get(resourceKey), plannedEnd));
   }
 
   return result;
