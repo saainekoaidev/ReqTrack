@@ -38,12 +38,18 @@ export function buildEstimatePrompt(input: EstimateInput): string {
     }
   });
   lines.push('');
+  lines.push('# WBS の階層(厳守)');
+  lines.push('機能(feature) → 対象(target) → 作業(task) の 3 階層で構成すること。');
+  lines.push(
+    '対象(target)は機能が扱う「画面」または「帳票」とし、name は「画面ID(画面名)」「帳票ID(帳票名)」の形式で具体的に書く(例: SCR-001(ログイン画面), RPT-010(売上日報))。',
+  );
+  lines.push('各対象ごとに標準工程(基本設計/詳細設計/コーディング/単体テスト/結合テスト)に沿って作業(task)へ分解すること。');
+  lines.push('');
   lines.push('# 出力(厳守)');
   lines.push('説明文やコードフェンスを一切付けず、次の JSON のみを出力すること:');
   lines.push(
-    '{"features":[{"name":"機能名","tasks":[{"name":"作業名","phase":"工程(基本設計/詳細設計/コーディング/単体テスト/結合テストのいずれか)","estimateDays":数値,"reason":"見積根拠"}]}]}',
+    '{"features":[{"name":"機能名","targets":[{"name":"画面ID(画面名) または 帳票ID(帳票名)","tasks":[{"name":"作業名","phase":"工程(基本設計/詳細設計/コーディング/単体テスト/結合テストのいずれか)","estimateDays":数値,"reason":"見積根拠"}]}]}]}',
   );
-  lines.push('各要件をひとつの機能(feature)とし、標準工程に沿って tasks を分解すること。');
   return lines.join('\n');
 }
 
@@ -53,13 +59,39 @@ const taskSchema = z.object({
   estimateDays: z.number().nonnegative(),
   reason: z.string().optional().default(''),
 });
+const targetSchema = z.object({
+  name: z.string().min(1),
+  tasks: z.array(taskSchema),
+});
+// 機能は targets(3階層)を基本とするが、旧形式(tasks 直下=2階層)も許容して正規化する。
+const featureSchema = z.object({
+  name: z.string().min(1),
+  targets: z.array(targetSchema).optional(),
+  tasks: z.array(taskSchema).optional(),
+});
 const responseSchema = z.object({
-  features: z.array(z.object({ name: z.string().min(1), tasks: z.array(taskSchema) })).min(1),
+  features: z.array(featureSchema).min(1),
 });
 
-export type EstimateResponse = z.infer<typeof responseSchema>;
+export interface EstimateTask {
+  name: string;
+  phase: string;
+  estimateDays: number;
+  reason: string;
+}
+export interface EstimateTarget {
+  name: string;
+  tasks: EstimateTask[];
+}
+export interface EstimateFeature {
+  name: string;
+  targets: EstimateTarget[];
+}
+export interface EstimateResponse {
+  features: EstimateFeature[];
+}
 
-/** stdout から JSON を抽出し検証して返す。コードフェンスや前後の文章があっても先頭の JSON を拾う。 */
+/** stdout から JSON を抽出し、3 階層(機能→対象→作業)に正規化して返す。 */
 export function parseEstimateResponse(stdout: string): EstimateResponse {
   const text = stdout.trim();
   const start = text.indexOf('{');
@@ -77,5 +109,26 @@ export function parseEstimateResponse(stdout: string): EstimateResponse {
   if (!result.success) {
     throw new Error('AI の見積結果が想定の形式ではありませんでした。');
   }
-  return result.data;
+  // 正規化: targets が無く tasks 直下のみの場合は、機能名を冠した単一の対象でくるむ。
+  const features: EstimateFeature[] = result.data.features.map((f) => {
+    const targets: EstimateTarget[] =
+      f.targets && f.targets.length > 0
+        ? f.targets.map((t) => ({
+            name: t.name,
+            tasks: t.tasks.map((k) => ({ ...k, reason: k.reason ?? '' })),
+          }))
+        : [
+            {
+              name: `${f.name} 全般`,
+              tasks: (f.tasks ?? []).map((k) => ({ ...k, reason: k.reason ?? '' })),
+            },
+          ];
+    return { name: f.name, targets };
+  });
+  // 少なくとも1つの作業があること
+  const hasAnyTask = features.some((f) => f.targets.some((t) => t.tasks.length > 0));
+  if (!hasAnyTask) {
+    throw new Error('AI の見積結果に作業(task)が含まれていませんでした。');
+  }
+  return { features };
 }
