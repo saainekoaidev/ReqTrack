@@ -7,6 +7,8 @@ export interface Project {
   name: string;
   description: string | null;
   createdAt: string;
+  // ガント(計画済みタスク)を持つか (US-032)。一覧APIが付与。
+  hasSchedule?: boolean;
 }
 
 export interface Settings {
