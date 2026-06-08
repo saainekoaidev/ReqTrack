@@ -37,6 +37,20 @@ export default function FileDropField({
     >
       <Icon name="import" size={16} />
       <span className={`dropline-text${file ? '' : ' muted'}`}>{file ? file.name : placeholder}</span>
+      {file && (
+        <button
+          type="button"
+          className="dropline-clear"
+          aria-label={`${ariaLabel} の選択を取消`}
+          title="選択を取消"
+          onClick={() => {
+            if (input.current) input.current.value = '';
+            onFile(null);
+          }}
+        >
+          <Icon name="close" size={14} />
+        </button>
+      )}
       <label className="dropline-browse">
         参照
         <input
