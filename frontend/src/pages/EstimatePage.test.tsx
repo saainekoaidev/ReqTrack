@@ -3,29 +3,36 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import EstimatePage from './EstimatePage';
+import { CreateProvider } from '../context/CreateContext';
 
-const project = { id: 'p1', name: '案件A', description: null, createdAt: '' };
+const project = { id: 'p1', name: '案件A', description: null, kind: 'new', createdAt: '' };
 const task = {
   id: 't1',
   projectId: 'p1',
   requirementId: null,
   name: '設計',
+  level: 3,
   estimateDays: 0,
+  utilizationRate: 1,
   plannedStart: null,
   plannedEnd: null,
   progress: 0,
   assigneeId: null,
 };
 
-describe('EstimatePage', () => {
-  afterEach(() => vi.unstubAllGlobals());
+describe('EstimatePage (US-038)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
   it('見積を入力して保存すると合計に反映される', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         let body: unknown = [];
-        if (url.includes('/api/projects')) body = [project];
+        if (url.includes('/api/settings')) body = { minEstimateDays: 0.1 };
+        else if (url.includes('/api/projects')) body = [project];
         else if (url.includes('/api/tasks/') && init?.method === 'PATCH')
           body = { ...task, estimateDays: 3 };
         else if (url.includes('/api/tasks')) body = [task];
@@ -36,9 +43,12 @@ describe('EstimatePage', () => {
       }),
     );
 
+    localStorage.setItem('reqtrack.createProjectId', 'p1');
     render(
       <MemoryRouter>
-        <EstimatePage />
+        <CreateProvider>
+          <EstimatePage />
+        </CreateProvider>
       </MemoryRouter>,
     );
 

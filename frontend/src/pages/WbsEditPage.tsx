@@ -1,29 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { api, type Member, type Project, type Task } from '../api/client';
+import { useNavigate } from 'react-router-dom';
+import { api, type Member, type Task } from '../api/client';
+import { useCreate } from '../context/CreateContext';
 import { sortTasksByWbs, nextFeatureWbsId, nextChildWbsId } from '../lib/wbs';
 
-// WBS 編集画面 (US-018)。一覧表上で階層タスクを直接 追加・削除・修正する。
+// WBS 編集(手組み, US-018 / US-038)。作成中プロジェクトに階層タスクを直接 追加・編集し、ガントを生成する。
 export default function WbsEditPage() {
-  const [params] = useSearchParams();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState(params.get('projectId') ?? '');
+  const { draft, loaded, clearDraft } = useCreate();
+  const navigate = useNavigate();
+  const projectId = draft?.id ?? '';
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [minStep, setMinStep] = useState(0.1);
+  const [startDate, setStartDate] = useState('2026-06-08');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .listProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (!projectId && ps[0]) setProjectId(ps[0].id);
-      })
-      .catch((e: unknown) => setError(toMessage(e)));
     api.listMembers().then(setMembers).catch(() => {});
     api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function reload() {
@@ -31,6 +25,18 @@ export default function WbsEditPage() {
     api.listTasks(projectId).then(setTasks).catch((e: unknown) => setError(toMessage(e)));
   }
   useEffect(reload, [projectId]);
+
+  async function generateAndGo() {
+    if (!projectId) return;
+    try {
+      await api.generateSchedule(projectId, startDate);
+      localStorage.setItem('reqtrack.projectId', projectId);
+      clearDraft();
+      navigate('/manage/gantt');
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
 
   const ordered = sortTasksByWbs(tasks);
 
@@ -86,9 +92,27 @@ export default function WbsEditPage() {
     }
   }
 
+  if (!loaded) return null;
+
+  if (!draft) {
+    return (
+      <section>
+        <h2>WBS 編集(手組み)</h2>
+        <div className="card">
+          <p className="muted" style={{ marginTop: 0 }}>
+            先にプロジェクトを作成してください。
+          </p>
+          <button type="button" onClick={() => navigate('/create')}>
+            ← プロジェクト作成へ
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section>
-      <h2>WBS 編集</h2>
+      <h2>WBS 編集(手組み)</h2>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -96,19 +120,11 @@ export default function WbsEditPage() {
       )}
 
       <div className="card">
-        <div className="inline-form" style={{ marginTop: 0 }}>
-          <label>
-            対象プロジェクト:{' '}
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              {projects.length === 0 && <option value="">(プロジェクトなし)</option>}
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={addFeature} disabled={!projectId}>
+        <div className="inline-form" style={{ marginTop: 0, justifyContent: 'space-between' }}>
+          <span className="muted">
+            対象プロジェクト: <strong>{draft.name}</strong>
+          </span>
+          <button type="button" onClick={addFeature}>
             機能を追加
           </button>
         </div>
@@ -216,6 +232,30 @@ export default function WbsEditPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="card">
+        <h3>ガントを生成</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          工数・稼働率から、土日・祝日を除いた稼働日でタスクを割り付け、ガントを作成します。
+        </p>
+        <div className="inline-form" style={{ marginTop: 0 }}>
+          <button type="button" className="btn-secondary" onClick={() => navigate('/create/estimate')}>
+            ← 見積・ガント へ戻る
+          </button>
+          <label>
+            開始日:{' '}
+            <input
+              type="date"
+              aria-label="開始日"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </label>
+          <button type="button" onClick={generateAndGo} disabled={ordered.length === 0}>
+            ガントを生成して進捗管理へ →
+          </button>
+        </div>
       </div>
     </section>
   );

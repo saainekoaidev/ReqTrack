@@ -5,9 +5,9 @@ test('ランディングから各入口へ遷移できる', async ({ page }) => 
   await expect(page.getByRole('link', { name: 'ReqTrack' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'ようこそ' })).toBeVisible();
 
-  // 新規作成系へ
+  // 新規作成系へ (US-038: ステップ1「プロジェクト作成」)
   await page.getByRole('link', { name: /新規作成/ }).click();
-  await expect(page.getByRole('heading', { name: '新規プロジェクト' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '1. プロジェクト作成' })).toBeVisible();
 
   // 進捗管理: ガントを持つプロジェクトが無い場合は案内が出る(US-032)
   await page.goto('/manage');

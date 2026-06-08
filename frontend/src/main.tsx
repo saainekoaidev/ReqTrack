@@ -7,8 +7,6 @@ import ManageLayout from './layouts/ManageLayout';
 import SettingsPage from './pages/SettingsPage';
 import NewProjectPage from './pages/NewProjectPage';
 import RequirementsPage from './pages/RequirementsPage';
-import ImportPage from './pages/ImportPage';
-import TasksPage from './pages/TasksPage';
 import EstimatePage from './pages/EstimatePage';
 import WbsEditPage from './pages/WbsEditPage';
 import GanttPage from './pages/GanttPage';
@@ -25,8 +23,9 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <NewProjectPage /> },
       { path: 'requirements', element: <RequirementsPage /> },
-      { path: 'import', element: <ImportPage /> },
-      { path: 'tasks', element: <TasksPage /> },
+      // 旧ルートは新フローへリダイレクト (US-038)
+      { path: 'import', element: <Navigate to="/create/requirements" replace /> },
+      { path: 'tasks', element: <Navigate to="/create/estimate" replace /> },
       { path: 'estimate', element: <EstimatePage /> },
       { path: 'wbs', element: <WbsEditPage /> },
     ],

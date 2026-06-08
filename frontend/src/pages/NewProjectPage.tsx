@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, type ReferenceProject } from '../api/client';
+import { useCreate } from '../context/CreateContext';
 
-// 新規プロジェクト (US-020 / US-024)。名称・案件区分(新規/既存)を選び、起点を選んで開始する。
+// 1. プロジェクト作成 (US-020 / US-024 / US-038)。
+// 作成前: 名称・区分を入力して作成。作成後: 入力を非活性表示にし「やり直し」「次へ」のみ。
 export default function NewProjectPage() {
+  const { draft, loaded, setDraft, clearDraft } = useCreate();
+  const navigate = useNavigate();
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<'new' | 'existing'>('new');
@@ -11,13 +16,12 @@ export default function NewProjectPage() {
   const [refProjects, setRefProjects] = useState<ReferenceProject[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     api.listReferenceProjects().then(setRefProjects).catch(() => {});
   }, []);
 
-  async function start(mode: 'estimate' | 'gantt') {
+  async function create() {
     if (!name.trim() || busy) return;
     if (kind === 'existing' && !referenceProjectId) {
       setError('既存案件では参照資料プロジェクトを選択してください(設定 > 参照資料 で登録)');
@@ -31,16 +35,83 @@ export default function NewProjectPage() {
         kind,
         referenceProjectId: kind === 'existing' ? referenceProjectId : undefined,
       });
-      navigate(mode === 'estimate' ? `/create/import?projectId=${p.id}` : `/create/wbs?projectId=${p.id}`);
+      setDraft(p.id);
+      navigate('/create/requirements');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   }
 
+  // 作成中プロジェクトを破棄して最初からやり直す
+  async function reset() {
+    if (!draft) return;
+    if (!window.confirm(`作成中のプロジェクト「${draft.name}」を破棄して最初からやり直しますか?`))
+      return;
+    setBusy(true);
+    try {
+      await api.deleteProject(draft.id);
+      clearDraft();
+      setName('');
+      setDescription('');
+      setKind('new');
+      setReferenceProjectId('');
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!loaded) return null;
+
+  // ---- 作成後: ロック表示 ----
+  if (draft) {
+    const refName = refProjects.find((r) => r.id === draft.referenceProjectId)?.name;
+    return (
+      <section>
+        <h2>1. プロジェクト作成</h2>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="card">
+          <p className="muted" style={{ marginTop: 0 }}>
+            このプロジェクトを作成中です。内容を変えるには「やり直し」で破棄して作り直してください。
+          </p>
+          <dl className="locked-summary">
+            <dt>プロジェクト名</dt>
+            <dd>{draft.name}</dd>
+            <dt>概要</dt>
+            <dd>{draft.description || '（なし）'}</dd>
+            <dt>案件区分</dt>
+            <dd>{draft.kind === 'existing' ? '既存改修' : '新規開発'}</dd>
+            {draft.kind === 'existing' && (
+              <>
+                <dt>参照資料</dt>
+                <dd>{refName ?? '（不明）'}</dd>
+              </>
+            )}
+          </dl>
+        </div>
+        <div className="inline-form" style={{ marginTop: 0 }}>
+          <button type="button" className="btn-danger" onClick={reset} disabled={busy}>
+            やり直し（破棄）
+          </button>
+          <button type="button" onClick={() => navigate('/create/requirements')}>
+            次へ：要件登録 →
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  // ---- 作成前: 入力フォーム ----
   return (
     <section>
-      <h2>新規プロジェクト</h2>
+      <h2>1. プロジェクト作成</h2>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -69,13 +140,26 @@ export default function NewProjectPage() {
           />
         </label>
 
-        <fieldset style={{ marginTop: 'var(--space-3)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)' }}>
+        <fieldset
+          style={{
+            marginTop: 'var(--space-3)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius)',
+          }}
+        >
           <legend>案件区分</legend>
           <label style={{ marginRight: 'var(--space-3)' }}>
-            <input type="radio" name="kind" checked={kind === 'new'} onChange={() => setKind('new')} /> 新規開発
+            <input type="radio" name="kind" checked={kind === 'new'} onChange={() => setKind('new')} />{' '}
+            新規開発
           </label>
           <label>
-            <input type="radio" name="kind" checked={kind === 'existing'} onChange={() => setKind('existing')} /> 既存改修
+            <input
+              type="radio"
+              name="kind"
+              checked={kind === 'existing'}
+              onChange={() => setKind('existing')}
+            />{' '}
+            既存改修
           </label>
           {kind === 'existing' && (
             <div style={{ marginTop: 'var(--space-2)' }}>
@@ -106,28 +190,9 @@ export default function NewProjectPage() {
         </p>
       </div>
 
-      <div className="card-grid">
-        <button
-          type="button"
-          className="card card-link"
-          onClick={() => start('estimate')}
-          disabled={!name.trim() || busy}
-          style={{ textAlign: 'left', cursor: 'pointer' }}
-        >
-          <h3>見積から始める</h3>
-          <p className="muted">
-            要件一覧・見積明細のファイル(テンプレ/自由体裁)や自然文を取り込んで開始します
-          </p>
-        </button>
-        <button
-          type="button"
-          className="card card-link"
-          onClick={() => start('gantt')}
-          disabled={!name.trim() || busy}
-          style={{ textAlign: 'left', cursor: 'pointer' }}
-        >
-          <h3>ガントから始める</h3>
-          <p className="muted">空のガントに階層タスクを表上で直接 追加・編集して開始します</p>
+      <div className="inline-form" style={{ marginTop: 0 }}>
+        <button type="button" onClick={create} disabled={!name.trim() || busy}>
+          プロジェクトを作成して次へ →
         </button>
       </div>
     </section>
