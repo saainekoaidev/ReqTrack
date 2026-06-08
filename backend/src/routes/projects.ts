@@ -8,6 +8,9 @@ import { getSettings } from './settings.js';
 import { buildEstimateWorkbook } from '../excel.js';
 import { toDateKey } from '../domain/schedule.js';
 import { expandWbs } from '../domain/wbs.js';
+import { runClaude } from '../claude-cli.js';
+import { buildEstimatePrompt, parseEstimateResponse } from '../domain/aiEstimate.js';
+import { searchReferences } from '../ftsStore.js';
 import {
   splitNaturalText,
   extractRequirements,
@@ -247,6 +250,85 @@ projects.post('/:id/expand-reviews', async (c) => {
     }
   }
   return c.json(created, 201);
+});
+
+// AI 見積生成 (US-036)。Claude Code CLI(サブスク枠)で要件→タスク・工数・根拠を生成し WBS 化。
+projects.post('/:id/ai-estimate', async (c) => {
+  const projectId = c.req.param('id');
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) return c.json({ error: 'Not Found' }, 404);
+
+  const requirements = await prisma.requirement.findMany({
+    where: { projectId },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (requirements.length === 0) {
+    return c.json({ error: '要件がありません。先に要件を登録/取り込みしてください。' }, 400);
+  }
+
+  const cfg = await getSettings();
+  const isExisting = project.kind === 'existing' && !!project.referenceProjectId;
+
+  const reqCtx = [];
+  for (const r of requirements) {
+    let references: { path: string; snippet: string }[] | undefined;
+    if (isExisting && project.referenceProjectId) {
+      const hits = await searchReferences(project.referenceProjectId, r.content, 3);
+      references = hits.map((h) => ({ path: h.path, snippet: h.excerpt ?? '' }));
+    }
+    reqCtx.push({ content: r.content, references });
+  }
+
+  const prompt = buildEstimatePrompt({
+    projectName: project.name,
+    kind: isExisting ? 'existing' : 'new',
+    requirements: reqCtx,
+    hoursPerDay: cfg.hoursPerDay,
+  });
+
+  let stdout: string;
+  try {
+    stdout = await runClaude(prompt);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'AI 処理に失敗しました。' }, 502);
+  }
+
+  let parsed;
+  try {
+    parsed = parseEstimateResponse(stdout);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'AI 出力の解析に失敗しました。' }, 502);
+  }
+
+  // 生成結果を WBS タスク化(機能=level1, 作業=level3)
+  let featureNo = await prisma.task.count({ where: { projectId, level: 1 } });
+  let createdTasks = 0;
+  for (const f of parsed.features) {
+    featureNo += 1;
+    const feature = await prisma.task.create({
+      data: { projectId, name: f.name, level: 1, wbsId: String(featureNo), kind: 'task' },
+    });
+    let idx = 0;
+    for (const t of f.tasks) {
+      idx += 1;
+      await prisma.task.create({
+        data: {
+          projectId,
+          parentId: feature.id,
+          name: t.name,
+          level: 3,
+          wbsId: `${featureNo}.${idx}`,
+          phase: t.phase,
+          estimateDays: t.estimateDays,
+          estimateNote: t.reason || undefined,
+          kind: 'task',
+        },
+      });
+      createdTasks += 1;
+    }
+  }
+
+  return c.json({ features: parsed.features.length, tasks: createdTasks });
 });
 
 // 効率化調整 (US-014)。複数機能同時実施の重複削減を負の工数 1 行で表現する。

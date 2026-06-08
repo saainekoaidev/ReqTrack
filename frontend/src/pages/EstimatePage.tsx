@@ -14,6 +14,7 @@ export default function EstimatePage() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [minStep, setMinStep] = useState(0.1);
   const [startDate, setStartDate] = useState('2026-06-08');
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function EstimatePage() {
     api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  function loadTasks() {
     if (!projectId) return;
     api
       .listTasks(projectId)
@@ -43,9 +44,25 @@ export default function EstimatePage() {
         );
       })
       .catch((e: unknown) => setError(toMessage(e)));
-  }, [projectId]);
+  }
+  useEffect(loadTasks, [projectId]);
 
   const total = useMemo(() => round3(tasks.reduce((sum, t) => sum + (t.estimateDays || 0), 0)), [tasks]);
+
+  // AI(Claude Code サブスク枠)で見積を生成 (US-036)
+  async function aiGenerate() {
+    if (!projectId) return;
+    setMessage('AI で見積を生成中です(数十秒かかることがあります)…');
+    try {
+      const r = await api.aiEstimate(projectId);
+      setMessage(`AI 見積を生成しました: 機能 ${r.features} 件 / タスク ${r.tasks} 件。`);
+      setError(null);
+      loadTasks();
+    } catch (e) {
+      setMessage(null);
+      setError(toMessage(e));
+    }
+  }
 
   // ガント初版を生成して進捗管理のガントへ(新規作成ワークフローの仕上げ)
   async function generateAndGo() {
@@ -92,6 +109,11 @@ export default function EstimatePage() {
           {error}
         </p>
       )}
+      {message && (
+        <p className="muted" role="status">
+          {message}
+        </p>
+      )}
 
       <div className="card">
         <label>
@@ -108,6 +130,16 @@ export default function EstimatePage() {
         <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
           工数は人日(小数自由)。稼働率で実作業量と期間が変わります(期間 = 工数 ÷ 稼働率、1日 = 8時間)。
         </p>
+      </div>
+
+      <div className="card">
+        <h3>AI で見積を生成</h3>
+        <p className="muted">
+          要件(既存改修は参照資料も)をもとに、Claude Code(現在のご契約の使用量枠)で機能・工程・工数・根拠を生成し、WBS に追加します。追加課金の API は使いません。
+        </p>
+        <button type="button" onClick={aiGenerate} disabled={!projectId}>
+          AI で見積を生成
+        </button>
       </div>
 
       <div className="card">

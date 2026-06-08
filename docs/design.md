@@ -57,6 +57,8 @@ reqtrack/
 | DELETE | `/api/projects/:id` | プロジェクト削除(配下を連動削除) | US-030 |
 | POST | `/api/projects/:id/expand-reviews` | レビュー自動展開(機能ごとに PL レビュー) | US-014 |
 | POST | `/api/projects/:id/efficiency` | 効率化調整(負の工数 1 行) | US-014 |
+| POST | `/api/projects/:id/ai-estimate` | AI見積生成(Claude Code CLI/サブスク枠) | US-036 |
+| GET | `/api/reference-projects/:id/search?q=` | 参照資料の全文検索(FTS5) | US-035 |
 | POST | `/api/projects/:id/import/requirements-text` | 自然文→要件(任意で標準工程展開) | US-019 |
 | POST | `/api/projects/:id/import/requirements-file` | ファイル(xlsx/csv)→要件 | US-019 |
 | POST | `/api/projects/:id/import/estimate-file` | ファイル(xlsx/csv)→見積明細タスク | US-019 |

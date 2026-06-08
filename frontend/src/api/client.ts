@@ -216,6 +216,11 @@ export const api = {
   }) => request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
 
   deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  // AI 見積生成 (US-036)。Claude Code CLI(サブスク枠)で実行。
+  aiEstimate: (projectId: string) =>
+    request<{ features: number; tasks: number }>(`/api/projects/${projectId}/ai-estimate`, {
+      method: 'POST',
+    }),
 
   // 参照資料プロジェクト (US-024)
   listReferenceProjects: () => request<ReferenceProject[]>('/api/reference-projects'),
