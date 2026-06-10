@@ -34,7 +34,7 @@ function countWorkingDays(from: Date, toExcl: Date, holidays: ReadonlySet<string
 }
 
 /** datetime を稼働時間軸の位置(稼働日単位の小数)へ変換する(基準日からの稼働日数 + 当日内の割合)。 */
-function workingTime(
+export function workingTime(
   dt: Date,
   baseDay: Date,
   holidays: ReadonlySet<string>,
@@ -78,6 +78,8 @@ export interface GanttModel {
   totalWT: number;
   /** 年/月ヘッダ(年込み) */
   months: { label: string; span: number }[];
+  /** 稼働時間軸の基準日(最小開始日の 0:00 UTC)。本日線/イナズマ線の位置計算に使う (US-051)。 */
+  baseDay: Date | null;
 }
 
 /**
@@ -91,7 +93,7 @@ export function buildGantt(
   hoursPerDay = 8,
 ): GanttModel {
   const planned = tasks.filter((t) => t.plannedStart && t.plannedEnd);
-  if (planned.length === 0) return { rows: [], axis: [], totalWT: 0, months: [] };
+  if (planned.length === 0) return { rows: [], axis: [], totalWT: 0, months: [], baseDay: null };
 
   const baseDay = utcMidnight(
     new Date(Math.min(...planned.map((t) => new Date(t.plannedStart!).getTime()))),
@@ -205,7 +207,7 @@ export function buildGantt(
     else months.push({ label, span: 1 });
   }
 
-  return { rows, axis, totalWT, months };
+  return { rows, axis, totalWT, months, baseDay };
 }
 
 /**

@@ -12,6 +12,8 @@ export default function GanttPage() {
   const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
   const [hoursPerDay, setHoursPerDay] = useState(8);
   const [startDate, setStartDate] = useState('2026-06-08');
+  const [slip, setSlip] = useState(''); // イナズマ線の基準日(空なら非表示) (US-051)
+  const [showToday, setShowToday] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,12 +127,34 @@ export default function GanttPage() {
           左の表で 名称・工数・稼働率・担当 を直接編集できます(保存即時)。日程へは「スケジュールを再生成」で反映。
           タスクの追加/削除は「WBS編集」で行います。
         </p>
+        <div className="inline-form" style={{ marginTop: 0, marginBottom: 'var(--space-2)' }}>
+          <label>
+            <input type="checkbox" checked={showToday} onChange={(e) => setShowToday(e.target.checked)} />{' '}
+            本日線
+          </label>
+          <label>
+            イナズマ線の基準日:{' '}
+            <input
+              type="date"
+              aria-label="イナズマ線の基準日"
+              value={slip}
+              onChange={(e) => setSlip(e.target.value)}
+            />
+          </label>
+          {slip && (
+            <button type="button" className="btn-secondary" onClick={() => setSlip('')}>
+              イナズマ線を消す
+            </button>
+          )}
+        </div>
         <GanttChart
           tasks={tasks}
           holidays={holidays}
           hoursPerDay={hoursPerDay}
           members={members}
           onPatch={patchTask}
+          today={showToday ? new Date() : null}
+          slipDate={slip ? new Date(`${slip}T12:00:00Z`) : null}
         />
       </div>
 
