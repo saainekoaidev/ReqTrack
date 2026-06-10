@@ -172,7 +172,7 @@ export default function WbsEditor({
                       aria-label={`${t.wbsId ?? t.id} の工数`}
                       defaultValue={t.estimateDays}
                       disabled={!isLeaf}
-                      onBlur={(e) => {
+                      onChange={(e) => {
                         const v = Number(e.target.value);
                         if (!Number.isNaN(v) && v !== t.estimateDays) patch(t, { estimateDays: v });
                       }}
@@ -188,7 +188,7 @@ export default function WbsEditor({
                       aria-label={`${t.wbsId ?? t.id} の稼働率`}
                       defaultValue={t.utilizationRate ?? 1}
                       disabled={!isLeaf}
-                      onBlur={(e) => {
+                      onChange={(e) => {
                         const v = Number(e.target.value);
                         if (!Number.isNaN(v) && v > 0 && v <= 1 && v !== t.utilizationRate)
                           patch(t, { utilizationRate: v });
