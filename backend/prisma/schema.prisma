@@ -120,6 +120,10 @@ model Task {
   phase         String?
   estimateNote  String?
   kind          String           @default("task")
+  // レビュー形態 (US-047): sync=対面(レビュワー・レビュイー同時) / doc=書面(レビュワーのみ)
+  reviewFormat  String?
+  // 対面レビューの同期ペア識別子 (US-047)。同じ値のタスクは同一区間に配置する
+  reviewLinkId  String?
   // 見積 (US-003)。小数点以下の自由値 (US-012、効率化調整で負値も可)
   estimateDays  Float            @default(0)
   // 稼働率 0 < r <= 1 (US-012)。期間(営業日) = ceil(工数 ÷ 稼働率)

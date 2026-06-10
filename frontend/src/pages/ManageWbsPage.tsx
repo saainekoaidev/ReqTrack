@@ -10,6 +10,7 @@ export default function ManageWbsPage() {
   const [startDate, setStartDate] = useState('');
   const [startTouched, setStartTouched] = useState(false);
   const [includeReviews, setIncludeReviews] = useState(true);
+  const [reviewFormat, setReviewFormat] = useState<'sync' | 'doc'>('sync');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export default function ManageWbsPage() {
     if (!projectId) return;
     const sd = startDate || new Date().toISOString().slice(0, 10);
     try {
-      await api.setReviews(projectId, includeReviews);
+      await api.setReviews(projectId, includeReviews, reviewFormat);
       const updated = await api.generateSchedule(projectId, sd);
       const scheduled = updated.filter((t) => t.plannedStart).length;
       setMessage(
@@ -86,6 +87,19 @@ export default function ManageWbsPage() {
           />{' '}
           レビュー工程を入れる(再生成時に再展開。レビュワーは最上位=プロジェクト管理者へ自動割付)
         </label>
+        {includeReviews && (
+          <label style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
+            レビュー形態:{' '}
+            <select
+              aria-label="レビュー形態"
+              value={reviewFormat}
+              onChange={(e) => setReviewFormat(e.target.value as 'sync' | 'doc')}
+            >
+              <option value="sync">対面(双方の空きが合う所へ同時配置)</option>
+              <option value="doc">書面(レビュワーのみ。後から形態変更も可)</option>
+            </select>
+          </label>
+        )}
         <div className="inline-form" style={{ marginTop: 0 }}>
           <label>
             開始日:{' '}

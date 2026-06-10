@@ -297,11 +297,11 @@ export const api = {
   // レビュー自動展開 / 効率化調整 (US-014)
   expandReviews: (projectId: string) =>
     request<{ created: number }>(`/api/projects/${projectId}/expand-reviews`, { method: 'POST' }),
-  // レビュー工程の有無を切り替え (US-044)。include=true で展開、false で全削除。
-  setReviews: (projectId: string, include: boolean) =>
+  // レビュー工程の有無・形態を切り替え (US-044 / US-047)。format: sync=対面 / doc=書面。
+  setReviews: (projectId: string, include: boolean, format: 'sync' | 'doc' = 'sync') =>
     request<{ include: boolean; created?: number; removed?: number }>(
       `/api/projects/${projectId}/reviews`,
-      { method: 'POST', body: JSON.stringify({ include }) },
+      { method: 'POST', body: JSON.stringify({ include, format }) },
     ),
   addEfficiency: (projectId: string, input: { estimateDays: number; note?: string }) =>
     request<Task>(`/api/projects/${projectId}/efficiency`, {

@@ -21,6 +21,7 @@ export default function EstimatePage() {
   const [minStep, setMinStep] = useState(0.1);
   const [startDate, setStartDate] = useState('2026-06-08');
   const [includeReviews, setIncludeReviews] = useState(true);
+  const [reviewFormat, setReviewFormat] = useState<'sync' | 'doc'>('sync');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +81,7 @@ export default function EstimatePage() {
   async function generateAndGo() {
     if (!projectId) return;
     try {
-      await api.setReviews(projectId, includeReviews);
+      await api.setReviews(projectId, includeReviews, reviewFormat);
       await api.generateSchedule(projectId, startDate);
       finishToGantt();
     } catch (e) {
@@ -344,8 +345,21 @@ export default function EstimatePage() {
               checked={includeReviews}
               onChange={(e) => setIncludeReviews(e.target.checked)}
             />{' '}
-            レビュー工程を入れる(各工程の後にレビューを自動展開。レビュワーは最上位=プロジェクト管理者へ自動割付、レビュイー側にも計上)
+            レビュー工程を入れる(各工程の後にレビューを自動展開。レビュワーは最上位=プロジェクト管理者へ自動割付)
           </label>
+          {includeReviews && (
+            <label style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
+              レビュー形態:{' '}
+              <select
+                aria-label="レビュー形態"
+                value={reviewFormat}
+                onChange={(e) => setReviewFormat(e.target.value as 'sync' | 'doc')}
+              >
+                <option value="sync">対面(レビュワーとレビュイーの空きが合う所へ同時に配置)</option>
+                <option value="doc">書面(レビュワーのみ。レビュイーは待たず別作業)</option>
+              </select>
+            </label>
+          )}
           <div className="inline-form" style={{ marginTop: 0 }}>
             <label>
               開始日:{' '}

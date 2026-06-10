@@ -223,6 +223,8 @@ export interface EstimatedTask {
   /** 既存の計画開始/終了。着手済み/完了タスクのアンカーに使う (US-042)。 */
   fixedStart?: Date | null;
   fixedEnd?: Date | null;
+  /** 同期グループ(対面レビュー等)。同じ syncGroup のタスクは同一区間に配置し、双方の要員の空きが合う所へ差し込む (US-047)。 */
+  syncGroup?: string;
 }
 
 const UNASSIGNED_KEY = '__unassigned__';
@@ -314,12 +316,16 @@ function advanceWorkingHours(
 }
 
 /**
- * 見積(人日)・稼働率・依存・要員を考慮してタスクをスケジューリングする (US-004 / US-012 / US-040 / US-041)。
- * - 稼働日(土日・祝日を除く)の勤務時間内に、小数人日をそのまま(切り上げずに)割り付ける(コマ無し)
- * - 開始 = max(プロジェクト開始, 同一 groupKey の直前タスク終了, 同一 resourceKey の直前タスク終了)
- *   → 同一対象配下は工程順に直列、同一要員は直列、別グループ/別要員は並行
- * - plannedStart/End は時刻まで保持する(例: 0.5人日 → 始業 9:00〜13:00)
- * - tasks は呼び出し側で WBS 順(工程順)に並べておくこと(groupKey 内の順序がそのまま依存順になる)
+ * 見積(人日)・稼働率・依存・要員・同期(対面レビュー)を考慮してタスクをスケジューリングする
+ * (US-004 / US-012 / US-040 / US-041 / US-042 / US-047)。
+ * - 区間ギャップ充填方式: 各要員の「埋まっている区間」を持ち、空き(ギャップ)へ非割込みで配置する
+ *   (タスクは走り始めたら終わるまで分割しない)
+ * - 依存: 同一 groupKey は配列順(=工程順)に直列(直前タスク終了が起点)
+ * - 要員: 同一 resourceKey は重複不可(=直列)。空きがあれば前詰めで充填
+ * - 同期(syncGroup): 対面レビュー等。関係要員全員の空きが同時に合う最早区間へ配置する
+ *   (待っている側はその間 別タスクを進められる)
+ * - 進捗のあるタスクはアンカー(開始固定) (US-042)
+ * - tasks は呼び出し側で WBS 順/工程順に並べておくこと
  */
 export function scheduleTasks(
   tasks: EstimatedTask[],
@@ -328,54 +334,103 @@ export function scheduleTasks(
   hoursPerDay = 8,
   dayStartHour = DAY_START_HOUR,
 ): ScheduledTask[] {
-  const result: ScheduledTask[] = [];
   const base = rollToWorkStart(
     atHour(utcMidnight(startDate), dayStartHour),
     holidays,
     hoursPerDay,
     dayStartHour,
   );
-  const groupLastEnd = new Map<string, Date>();
-  const resourceLastEnd = new Map<string, Date>();
+  // 要員ごとの埋まっている区間 [startMs, endMs]
+  const busy = new Map<string, [number, number][]>();
+  // グループ(対象)ごとの直前終了(工程依存の起点)
+  const groupEnd = new Map<string, number>();
+  const resultMap = new Map<string, ScheduledTask>();
 
-  const laterOf = (a: Date | undefined, b: Date): Date =>
-    a && a.getTime() > b.getTime() ? a : b;
+  const resKey = (t: EstimatedTask) => t.resourceKey ?? UNASSIGNED_KEY;
+  const grpKey = (t: EstimatedTask, i: number) => t.groupKey ?? `__task_${i}__`;
+  const occOf = (t: EstimatedTask) => workingDaysNeeded(t.estimateDays, t.utilizationRate) * hoursPerDay;
 
-  for (let i = 0; i < tasks.length; i++) {
-    const task = tasks[i]!;
-    const groupKey = task.groupKey ?? `__task_${i}__`; // 未指定は依存なし(自分専用)
-    const resourceKey = task.resourceKey ?? UNASSIGNED_KEY;
-    const occHours = workingDaysNeeded(task.estimateDays, task.utilizationRate) * hoursPerDay;
-    const progress = task.progress ?? 0;
-    // 着手済み(進捗>0)で既存開始があるタスクはアンカー(開始固定) (US-042)
-    const anchored = progress > 0 && task.fixedStart != null;
-
-    let plannedStart: Date;
-    let plannedEnd: Date;
-    if (anchored) {
-      plannedStart = new Date(task.fixedStart!.getTime());
-      if (progress >= 100 && task.fixedEnd) {
-        // 完了タスクは終了も固定
-        plannedEnd = new Date(task.fixedEnd.getTime());
-      } else {
-        // 着手中は開始固定のまま、工数に応じて終了を伸縮
-        plannedEnd = advanceWorkingHours(plannedStart, occHours, holidays, hoursPerDay, dayStartHour);
-      }
-    } else {
-      let earliest = base.getTime();
-      const g = groupLastEnd.get(groupKey);
-      if (g) earliest = Math.max(earliest, g.getTime());
-      const r = resourceLastEnd.get(resourceKey);
-      if (r) earliest = Math.max(earliest, r.getTime());
-      plannedStart = rollToWorkStart(new Date(earliest), holidays, hoursPerDay, dayStartHour);
-      plannedEnd = advanceWorkingHours(plannedStart, occHours, holidays, hoursPerDay, dayStartHour);
-    }
-
-    result.push({ id: task.id, plannedStart, plannedEnd });
-    // 後続の起点には「これまでの最遅終了」を使う(アンカーが早くても鎖は巻き戻さない)
-    groupLastEnd.set(groupKey, laterOf(groupLastEnd.get(groupKey), plannedEnd));
-    resourceLastEnd.set(resourceKey, laterOf(resourceLastEnd.get(resourceKey), plannedEnd));
+  function addBusy(rk: string, s: number, e: number) {
+    const arr = busy.get(rk) ?? [];
+    arr.push([s, e]);
+    busy.set(rk, arr);
+  }
+  function bumpGroup(gk: string, end: number) {
+    groupEnd.set(gk, Math.max(groupEnd.get(gk) ?? 0, end));
   }
 
-  return result;
+  /** resourceKeys 全員が earliest 以降で occHours 連続して空く最早区間を返す。 */
+  function findSlot(resourceKeys: string[], earliestMs: number, occHours: number): [Date, Date] {
+    let s = rollToWorkStart(new Date(Math.max(earliestMs, base.getTime())), holidays, hoursPerDay, dayStartHour);
+    for (let guard = 0; guard < 10000; guard++) {
+      const e = advanceWorkingHours(s, occHours, holidays, hoursPerDay, dayStartHour);
+      let conflictEnd = -1;
+      for (const rk of resourceKeys) {
+        for (const [bs, be] of busy.get(rk) ?? []) {
+          if (bs < e.getTime() && be > s.getTime()) conflictEnd = Math.max(conflictEnd, be);
+        }
+      }
+      if (conflictEnd < 0) return [s, e];
+      s = rollToWorkStart(new Date(conflictEnd), holidays, hoursPerDay, dayStartHour);
+    }
+    const e = advanceWorkingHours(s, occHours, holidays, hoursPerDay, dayStartHour);
+    return [s, e];
+  }
+
+  const doneSync = new Set<string>();
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i]!;
+    if (resultMap.has(task.id)) continue;
+    const anchored = (task.progress ?? 0) > 0 && task.fixedStart != null;
+
+    // --- 同期グループ(対面レビュー): 関係要員全員の空きが合う所へ一括配置 ---
+    if (task.syncGroup && !doneSync.has(task.syncGroup)) {
+      const members = tasks.filter((t) => t.syncGroup === task.syncGroup);
+      doneSync.add(task.syncGroup);
+      const resourceKeys = [...new Set(members.map(resKey))];
+      const occHours = Math.max(...members.map(occOf));
+      const anchoredMember = members.find((m) => (m.progress ?? 0) > 0 && m.fixedStart != null);
+      let start: Date;
+      let end: Date;
+      if (anchoredMember) {
+        start = new Date(anchoredMember.fixedStart!.getTime());
+        end = advanceWorkingHours(start, occHours, holidays, hoursPerDay, dayStartHour);
+      } else {
+        let earliest = base.getTime();
+        for (const m of members) {
+          const ge = groupEnd.get(grpKey(m, i));
+          if (ge) earliest = Math.max(earliest, ge);
+        }
+        [start, end] = findSlot(resourceKeys, earliest, occHours);
+      }
+      for (const m of members) {
+        resultMap.set(m.id, { id: m.id, plannedStart: start, plannedEnd: end });
+        addBusy(resKey(m), start.getTime(), end.getTime());
+        bumpGroup(grpKey(m, i), end.getTime());
+      }
+      continue;
+    }
+
+    // --- 単独タスク ---
+    const occHours = occOf(task);
+    const rk = resKey(task);
+    const gk = grpKey(task, i);
+    let start: Date;
+    let end: Date;
+    if (anchored) {
+      start = new Date(task.fixedStart!.getTime());
+      end =
+        (task.progress ?? 0) >= 100 && task.fixedEnd
+          ? new Date(task.fixedEnd.getTime())
+          : advanceWorkingHours(start, occHours, holidays, hoursPerDay, dayStartHour);
+    } else {
+      const earliest = Math.max(base.getTime(), groupEnd.get(gk) ?? 0);
+      [start, end] = findSlot([rk], earliest, occHours);
+    }
+    resultMap.set(task.id, { id: task.id, plannedStart: start, plannedEnd: end });
+    addBusy(rk, start.getTime(), end.getTime());
+    bumpGroup(gk, end.getTime());
+  }
+
+  return tasks.map((t) => resultMap.get(t.id)!).filter(Boolean);
 }

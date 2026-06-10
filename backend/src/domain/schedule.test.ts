@@ -280,6 +280,7 @@ describe('scheduleTasks (進捗のあるタスクの固定, US-042)', () => {
   });
 
   it('進捗0%は固定せず開始日から引き直す', () => {
+    const start0 = new Date('2026-06-15T00:00:00Z');
     const r = scheduleTasks(
       [
         {
@@ -290,11 +291,56 @@ describe('scheduleTasks (進捗のあるタスクの固定, US-042)', () => {
           fixedEnd: new Date('2026-06-08T17:00:00Z'),
         },
       ],
-      start,
+      start0,
       new Set(),
       8,
     );
     expect(key(r[0]!.plannedStart)).toBe('2026-06-15T09:00'); // 開始日へ
+  });
+});
+
+describe('scheduleTasks (対面/書面レビューの同期配置, US-047)', () => {
+  it('対面レビュー(syncGroup)は双方の空きが合う最早区間へ同時配置する', () => {
+    const start = new Date('2026-06-08T00:00:00Z'); // Mon
+    const r = scheduleTasks(
+      [
+        // m1(レビュワー) は Mon-Tue 埋まっている別作業
+        { id: 'm1dev', estimateDays: 2, groupKey: 'gx', resourceKey: 'm1' },
+        // m2(レビュイー) は Mon の開発
+        { id: 'm2dev', estimateDays: 1, groupKey: 'g1', resourceKey: 'm2' },
+        // 対面レビュー: m1 と m2 の同期ペア(g1 配下、m2dev の後)
+        { id: 'rev1', estimateDays: 1, groupKey: 'g1', resourceKey: 'm1', syncGroup: 'L1' },
+        { id: 'rev2', estimateDays: 1, groupKey: 'g1', resourceKey: 'm2', syncGroup: 'L1' },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    const by = Object.fromEntries(r.map((x) => [x.id, x]));
+    // m1 は Mon-Tue 埋まり → 双方空くのは Wed。レビューは Wed 同時刻。
+    expect(key(by['rev1']!.plannedStart)).toBe('2026-06-10T09:00');
+    expect(key(by['rev2']!.plannedStart)).toBe('2026-06-10T09:00');
+    expect(by['rev1']!.plannedEnd.getTime()).toBe(by['rev2']!.plannedEnd.getTime());
+  });
+
+  it('レビュイーは待っている間に別タスクを進められる(空きが前詰めされる)', () => {
+    const start = new Date('2026-06-08T00:00:00Z');
+    const r = scheduleTasks(
+      [
+        { id: 'm1busy', estimateDays: 3, groupKey: 'gx', resourceKey: 'm1' }, // Mon-Wed
+        { id: 'm2dev', estimateDays: 1, groupKey: 'g1', resourceKey: 'm2' }, // Mon
+        { id: 'rev1', estimateDays: 1, groupKey: 'g1', resourceKey: 'm1', syncGroup: 'L1' },
+        { id: 'rev2', estimateDays: 1, groupKey: 'g1', resourceKey: 'm2', syncGroup: 'L1' },
+        { id: 'm2other', estimateDays: 1, groupKey: 'g2', resourceKey: 'm2' }, // 別対象の作業
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    const by = Object.fromEntries(r.map((x) => [x.id, x]));
+    // m2other は m2 の空き(Tue)に前詰めされ、レビュー(Thu, m1 が Wed まで埋まる)を待たない
+    expect(key(by['m2other']!.plannedStart)).toBe('2026-06-09T09:00'); // Tue
+    expect(key(by['rev1']!.plannedStart)).toBe('2026-06-11T09:00'); // Thu(m1 Mon-Wed)
   });
 });
 
