@@ -837,8 +837,9 @@ button:disabled {
   left: 0;
   top: 0;
   bottom: 0;
-  background: var(--color-primary);
-  opacity: 0.55;
+  background: var(--color-primary-strong);
+  opacity: 0.85;
+  border-right: 2px solid var(--color-primary-strong);
 }
 
 .g2-bar-label {

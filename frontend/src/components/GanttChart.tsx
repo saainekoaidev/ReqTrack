@@ -20,8 +20,8 @@ export type GanttPatch = {
 
 // ガントチャート表示 (US-004 / US-015 / US-040)。
 // 左に WBS 3階層(機能/対象/作業)の表(折り畳み可)、右に稼働時間軸の連続バー(小数日対応・コマ無し)。
-const LEFT_COLS = '64px 230px 80px 78px 52px 96px 96px 84px';
-const LEFT_WIDTH = 64 + 230 + 80 + 78 + 52 + 96 + 96 + 84; // = 780
+const LEFT_COLS = '64px 220px 80px 74px 50px 92px 92px 84px 52px';
+const LEFT_WIDTH = 64 + 220 + 80 + 74 + 50 + 92 + 92 + 84 + 52; // = 808
 const MIN_DAY_PX = 34;
 
 export default function GanttChart({
@@ -107,6 +107,7 @@ export default function GanttChart({
             <div className="g2-cell">開始</div>
             <div className="g2-cell">終了</div>
             <div className="g2-cell">担当</div>
+            <div className="g2-cell">進捗</div>
           </div>
           <div className="g2-chart">
             {axis.map((d, i) => (
@@ -265,12 +266,13 @@ function GanttRowView({
             t.assignee?.name ?? ''
           )}
         </div>
+        <div className="g2-cell g2-num">{row.progress}%</div>
       </div>
       <div className="g2-chart">
         {row.startWT != null && (
           <div
             className={`g2-bar${isLeaf ? '' : ' is-summary'}`}
-            title={`${t.name}${isLeaf ? `: 進捗 ${t.progress}%` : ''}`}
+            title={`${t.name}: 進捗 ${row.progress}%`}
             style={{
               left: `${pctLeft}%`,
               width: `${pctWidth}%`,
@@ -278,14 +280,14 @@ function GanttRowView({
               borderColor: isLeaf ? color : undefined,
             }}
           >
-            {isLeaf && (
+            {(
               <>
                 <span
                   className="g2-bar-progress"
                   data-testid={`progress-${t.id}`}
-                  style={{ width: `${t.progress}%` }}
+                  style={{ width: `${row.progress}%` }}
                 />
-                <span className="g2-bar-label">{t.progress}%</span>
+                {isLeaf && <span className="g2-bar-label">{row.progress}%</span>}
               </>
             )}
           </div>
