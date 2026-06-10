@@ -38,6 +38,19 @@ export default function WbsEditor({
   const ordered = sortTasksByWbs(tasks);
   // 葉(子を持たない)タスクだけが工数/稼働率/担当を持つ。親は配下の集約 (US-049)。
   const childIds = new Set(tasks.map((t) => t.parentId).filter(Boolean) as string[]);
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const leafTasks = ordered.filter((t) => !childIds.has(t.id));
+
+  // 前提タスク(predecessor)の設定 (US-050)
+  async function setPreds(taskId: string, ids: string[]) {
+    try {
+      await api.setPredecessors(taskId, ids);
+      reload();
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
 
   async function addFeature() {
     if (!projectId) return;
@@ -117,6 +130,7 @@ export default function WbsEditor({
               <th>工数(人日)</th>
               <th>稼働率</th>
               <th>担当</th>
+              <th>前提タスク</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -196,6 +210,47 @@ export default function WbsEditor({
                         </option>
                       ))}
                     </select>
+                  </td>
+                  <td>
+                    {isLeaf ? (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', alignItems: 'center' }}>
+                        {(t.predecessorIds ?? []).map((pid) => (
+                          <span key={pid} className="pred-chip">
+                            {byId.get(pid)?.wbsId ?? '?'}
+                            <button
+                              type="button"
+                              aria-label={`前提 ${byId.get(pid)?.wbsId ?? pid} を外す`}
+                              onClick={() =>
+                                setPreds(t.id, (t.predecessorIds ?? []).filter((x) => x !== pid))
+                              }
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                        <select
+                          aria-label={`${t.wbsId ?? t.id} の前提タスクを追加`}
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value)
+                              setPreds(t.id, [...(t.predecessorIds ?? []), e.target.value]);
+                          }}
+                        >
+                          <option value="">+ 前提</option>
+                          {leafTasks
+                            .filter(
+                              (c) => c.id !== t.id && !(t.predecessorIds ?? []).includes(c.id),
+                            )
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.wbsId} {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <button type="button" className="btn-link-plain" onClick={() => addChild(t)}>
