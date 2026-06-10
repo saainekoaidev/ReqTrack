@@ -138,10 +138,26 @@ model Task {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   reports       ProgressReport[]
+  // 明示的な前提タスク依存 (US-050)。predecessorLinks=自分の前提、dependentLinks=自分を前提とする後続
+  predecessorLinks TaskDependency[] @relation("DepDependent")
+  dependentLinks   TaskDependency[] @relation("DepPredecessor")
 
   @@index([projectId])
   @@index([assigneeId])
   @@index([parentId])
+}
+
+/// 明示的なタスク間依存 (US-050)。taskId(後続) は predecessorId(前提) の終了後に開始する。
+model TaskDependency {
+  id            String @id @default(cuid())
+  dependent     Task   @relation("DepDependent", fields: [taskId], references: [id], onDelete: Cascade)
+  taskId        String
+  predecessor   Task   @relation("DepPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  predecessorId String
+
+  @@unique([taskId, predecessorId])
+  @@index([taskId])
+  @@index([predecessorId])
 }
 
 /// 日報 (US-017)。報告者・日付ごとの 1 提出。複数の進捗報告(明細)を束ねる。

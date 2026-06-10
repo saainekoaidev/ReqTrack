@@ -10,11 +10,19 @@ export async function scheduleProject(
   projectId: string,
   startDate: string,
 ): Promise<{ scheduled: number }> {
-  const [projectTasks, holidayRows, cfg] = await Promise.all([
+  const [projectTasks, holidayRows, cfg, deps] = await Promise.all([
     prisma.task.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } }),
     prisma.holiday.findMany(),
     getSettings(),
+    prisma.taskDependency.findMany({ where: { dependent: { projectId } } }),
   ]);
+  // taskId -> 前提タスク id 群 (US-050)
+  const predMap = new Map<string, string[]>();
+  for (const d of deps) {
+    const arr = predMap.get(d.taskId) ?? [];
+    arr.push(d.predecessorId);
+    predMap.set(d.taskId, arr);
+  }
   const holidays = new Set(holidayRows.map((h) => toDateKey(h.date)));
   // 親(対象)の wbsId を引くマップ。グループ順の決定に使う。
   const wbsById = new Map(projectTasks.map((t) => [t.id, t.wbsId]));
@@ -45,6 +53,8 @@ export async function scheduleProject(
       fixedEnd: t.plannedEnd,
       // 対面レビューの同期ペア: 双方の空きが合う所へ同一区間で配置 (US-047)
       syncGroup: t.reviewLinkId ?? undefined,
+      // 明示的な前提タスク (US-050)
+      predecessors: predMap.get(t.id),
     })),
     new Date(`${startDate}T00:00:00.000Z`),
     holidays,

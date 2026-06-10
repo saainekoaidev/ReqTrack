@@ -159,6 +159,8 @@ export interface Task {
   kind: string;
   assignee?: Member | null;
   requirement?: Requirement | null;
+  // 明示的な前提タスクの id 群 (US-050)
+  predecessorIds?: string[];
 }
 
 export interface CreateTaskInput {
@@ -285,6 +287,12 @@ export const api = {
       assigneeId?: string | null;
     },
   ) => request<Task>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  // 前提タスク(predecessor)の設定 (US-050)
+  setPredecessors: (id: string, predecessorIds: string[]) =>
+    request<{ taskId: string; predecessorIds: string[] }>(`/api/tasks/${id}/predecessors`, {
+      method: 'PUT',
+      body: JSON.stringify({ predecessorIds }),
+    }),
   // 要件から WBS+標準工程を展開 (US-013)
   expandWbs: (
     requirementId: string,

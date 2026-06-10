@@ -225,6 +225,8 @@ export interface EstimatedTask {
   fixedEnd?: Date | null;
   /** 同期グループ(対面レビュー等)。同じ syncGroup のタスクは同一区間に配置し、双方の要員の空きが合う所へ差し込む (US-047)。 */
   syncGroup?: string;
+  /** 明示的な前提タスクの id 群 (US-050)。全ての前提の終了後にのみ開始できる。 */
+  predecessors?: string[];
 }
 
 const UNASSIGNED_KEY = '__unassigned__';
@@ -346,9 +348,21 @@ export function scheduleTasks(
   const groupEnd = new Map<string, number>();
   const resultMap = new Map<string, ScheduledTask>();
 
+  const origIndex = new Map(tasks.map((t, i) => [t.id, i]));
+  const taskSet = new Set(tasks.map((t) => t.id));
   const resKey = (t: EstimatedTask) => t.resourceKey ?? UNASSIGNED_KEY;
-  const grpKey = (t: EstimatedTask, i: number) => t.groupKey ?? `__task_${i}__`;
+  const grpKey = (t: EstimatedTask) => t.groupKey ?? `__task_${origIndex.get(t.id)}__`;
   const occOf = (t: EstimatedTask) => workingDaysNeeded(t.estimateDays, t.utilizationRate) * hoursPerDay;
+  // 前提タスク(集合内に存在するものだけ)の終了時刻の最大
+  const predsOf = (t: EstimatedTask) => (t.predecessors ?? []).filter((p) => taskSet.has(p));
+  const predEndMs = (t: EstimatedTask) => {
+    let m = 0;
+    for (const p of predsOf(t)) {
+      const r = resultMap.get(p);
+      if (r) m = Math.max(m, r.plannedEnd.getTime());
+    }
+    return m;
+  };
 
   function addBusy(rk: string, s: number, e: number) {
     const arr = busy.get(rk) ?? [];
@@ -377,9 +391,13 @@ export function scheduleTasks(
     return [s, e];
   }
 
+  // --- 前提タスク依存をトポロジカル順に並べる (US-050) ---
+  // 同一 syncGroup は 1 ノードとして扱い、前提が全て済んでから配置する。
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const order = topoOrder(tasks, predsOf);
+
   const doneSync = new Set<string>();
-  for (let i = 0; i < tasks.length; i++) {
-    const task = tasks[i]!;
+  for (const task of order) {
     if (resultMap.has(task.id)) continue;
     const anchored = (task.progress ?? 0) > 0 && task.fixedStart != null;
 
@@ -398,15 +416,16 @@ export function scheduleTasks(
       } else {
         let earliest = base.getTime();
         for (const m of members) {
-          const ge = groupEnd.get(grpKey(m, i));
+          const ge = groupEnd.get(grpKey(m));
           if (ge) earliest = Math.max(earliest, ge);
+          earliest = Math.max(earliest, predEndMs(m));
         }
         [start, end] = findSlot(resourceKeys, earliest, occHours);
       }
       for (const m of members) {
         resultMap.set(m.id, { id: m.id, plannedStart: start, plannedEnd: end });
         addBusy(resKey(m), start.getTime(), end.getTime());
-        bumpGroup(grpKey(m, i), end.getTime());
+        bumpGroup(grpKey(m), end.getTime());
       }
       continue;
     }
@@ -414,7 +433,7 @@ export function scheduleTasks(
     // --- 単独タスク ---
     const occHours = occOf(task);
     const rk = resKey(task);
-    const gk = grpKey(task, i);
+    const gk = grpKey(task);
     let start: Date;
     let end: Date;
     if (anchored) {
@@ -424,7 +443,7 @@ export function scheduleTasks(
           ? new Date(task.fixedEnd.getTime())
           : advanceWorkingHours(start, occHours, holidays, hoursPerDay, dayStartHour);
     } else {
-      const earliest = Math.max(base.getTime(), groupEnd.get(gk) ?? 0);
+      const earliest = Math.max(base.getTime(), groupEnd.get(gk) ?? 0, predEndMs(task));
       [start, end] = findSlot([rk], earliest, occHours);
     }
     resultMap.set(task.id, { id: task.id, plannedStart: start, plannedEnd: end });
@@ -432,5 +451,56 @@ export function scheduleTasks(
     bumpGroup(gk, end.getTime());
   }
 
+  // 念のため未処理(循環など)を元順で補完
+  for (const t of tasks) {
+    if (resultMap.has(t.id)) continue;
+    const occHours = occOf(t);
+    const [start, end] = findSlot([resKey(t)], Math.max(base.getTime(), predEndMs(t)), occHours);
+    resultMap.set(t.id, { id: t.id, plannedStart: start, plannedEnd: end });
+    addBusy(resKey(t), start.getTime(), end.getTime());
+  }
+  void byId;
+
   return tasks.map((t) => resultMap.get(t.id)!).filter(Boolean);
+}
+
+/** 前提依存をトポロジカル順に並べる。元の並びを優先し、循環は元順で末尾に残す。 */
+function topoOrder(
+  tasks: EstimatedTask[],
+  predsOf: (t: EstimatedTask) => string[],
+): EstimatedTask[] {
+  const inSet = new Set(tasks.map((t) => t.id));
+  const indeg = new Map<string, number>();
+  const dependents = new Map<string, string[]>(); // predecessorId -> [dependentId...]
+  for (const t of tasks) indeg0(indeg, t.id);
+  for (const t of tasks) {
+    for (const p of predsOf(t)) {
+      if (!inSet.has(p)) continue;
+      indeg.set(t.id, (indeg.get(t.id) ?? 0) + 1);
+      const arr = dependents.get(p) ?? [];
+      arr.push(t.id);
+      dependents.set(p, arr);
+    }
+  }
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const ready = tasks.filter((t) => (indeg.get(t.id) ?? 0) === 0).map((t) => t.id); // 元順
+  const out: EstimatedTask[] = [];
+  const visited = new Set<string>();
+  while (ready.length > 0) {
+    const id = ready.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    out.push(byId.get(id)!);
+    for (const d of dependents.get(id) ?? []) {
+      indeg.set(d, (indeg.get(d) ?? 0) - 1);
+      if ((indeg.get(d) ?? 0) === 0) ready.push(d);
+    }
+  }
+  // 循環で残ったものは元順で追加
+  for (const t of tasks) if (!visited.has(t.id)) out.push(t);
+  return out;
+}
+
+function indeg0(m: Map<string, number>, id: string) {
+  if (!m.has(id)) m.set(id, 0);
 }

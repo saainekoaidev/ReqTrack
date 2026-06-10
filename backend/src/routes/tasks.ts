@@ -22,8 +22,8 @@ const taskInput = z.object({
   plannedStart: z.string().datetime().optional(),
   plannedEnd: z.string().datetime().optional(),
   assigneeId: z.string().min(1).optional(),
-  // WBS 階層 (US-018)
-  level: z.number().int().min(1).max(3).optional(),
+  // WBS 階層 (US-018 / US-049 任意の深さ)
+  level: z.number().int().min(1).max(20).optional(),
   parentId: z.string().min(1).optional(),
   wbsId: z.string().min(1).optional(),
   phase: z.string().min(1).optional(),
@@ -43,9 +43,18 @@ tasks.get('/', zValidator('query', listQuery), async (c) => {
   const list = await prisma.task.findMany({
     where: projectId ? { projectId } : undefined,
     orderBy: [{ plannedStart: 'asc' }, { createdAt: 'asc' }],
-    include: { assignee: true, requirement: true },
+    include: {
+      assignee: true,
+      requirement: true,
+      predecessorLinks: { select: { predecessorId: true } },
+    },
   });
-  return c.json(list);
+  // predecessorLinks を predecessorIds(string[]) に整形 (US-050)
+  const shaped = list.map(({ predecessorLinks, ...t }) => ({
+    ...t,
+    predecessorIds: predecessorLinks.map((l) => l.predecessorId),
+  }));
+  return c.json(shaped);
 });
 
 tasks.post('/', zValidator('json', taskInput), async (c) => {
@@ -110,6 +119,48 @@ tasks.patch('/:id', zValidator('json', taskPatch), async (c) => {
     include: { assignee: true, requirement: true },
   });
   return c.json(updated);
+});
+
+// 前提タスク(predecessor)の設定 (US-050)。指定タスクの前提を置き換える。循環は拒否。
+const predInput = z.object({ predecessorIds: z.array(z.string().min(1)) });
+tasks.put('/:id/predecessors', zValidator('json', predInput), async (c) => {
+  const id = c.req.param('id');
+  const { predecessorIds } = c.req.valid('json');
+  const uniq = [...new Set(predecessorIds)].filter((p) => p !== id);
+
+  // 循環チェック: 候補 p から id へ既存依存で到達できるなら、p を前提にすると循環する
+  const allDeps = await prisma.taskDependency.findMany();
+  const predGraph = new Map<string, string[]>(); // task -> その前提群
+  for (const d of allDeps) {
+    const arr = predGraph.get(d.taskId) ?? [];
+    arr.push(d.predecessorId);
+    predGraph.set(d.taskId, arr);
+  }
+  // id を前提に持つ(=id の後続)集合 = id から「後続方向」に到達できるノード
+  const successors = new Set<string>();
+  const stack = [id];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const [t, preds] of predGraph) {
+      if (preds.includes(cur) && !successors.has(t)) {
+        successors.add(t);
+        stack.push(t);
+      }
+    }
+  }
+  for (const p of uniq) {
+    if (successors.has(p)) {
+      return c.json({ error: `循環依存になるため設定できません(${p} は後続タスクです)。` }, 400);
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.taskDependency.deleteMany({ where: { taskId: id } }),
+    ...uniq.map((p) =>
+      prisma.taskDependency.create({ data: { taskId: id, predecessorId: p } }),
+    ),
+  ]);
+  return c.json({ taskId: id, predecessorIds: uniq });
 });
 
 // ガント初版を生成する (US-004)。見積から稼働日ベースで計画日を割り付ける。

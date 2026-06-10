@@ -299,6 +299,41 @@ describe('scheduleTasks (進捗のあるタスクの固定, US-042)', () => {
   });
 });
 
+describe('scheduleTasks (明示的な前提タスク, US-050)', () => {
+  const start = new Date('2026-06-08T00:00:00Z'); // Mon
+
+  it('2.3 の前提が 1.1 のとき、別要員でも 1.1 の終了後に開始する', () => {
+    const r = scheduleTasks(
+      [
+        { id: 't11', estimateDays: 2, groupKey: 'g1', resourceKey: 'm1' }, // 1.1: Mon-Tue
+        { id: 't23', estimateDays: 1, groupKey: 'g2', resourceKey: 'm2', predecessors: ['t11'] }, // 2.3
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    const by = Object.fromEntries(r.map((x) => [x.id, x]));
+    expect(key(by['t11']!.plannedEnd)).toBe('2026-06-09T17:00'); // Tue 終業
+    expect(key(by['t23']!.plannedStart)).toBe('2026-06-10T09:00'); // Wed 始業(前提の後)
+  });
+
+  it('前提が後ろに並んでいてもトポロジカル順で正しく後続を配置する', () => {
+    const r = scheduleTasks(
+      [
+        // 配列順では後続が先に来るが、前提を尊重する
+        { id: 'b', estimateDays: 1, groupKey: 'g2', resourceKey: 'm2', predecessors: ['a'] },
+        { id: 'a', estimateDays: 1, groupKey: 'g1', resourceKey: 'm1' },
+      ],
+      start,
+      new Set(),
+      8,
+    );
+    const by = Object.fromEntries(r.map((x) => [x.id, x]));
+    expect(key(by['a']!.plannedEnd)).toBe('2026-06-08T17:00');
+    expect(key(by['b']!.plannedStart)).toBe('2026-06-09T09:00');
+  });
+});
+
 describe('scheduleTasks (対面/書面レビューの同期配置, US-047)', () => {
   it('対面レビュー(syncGroup)は双方の空きが合う最早区間へ同時配置する', () => {
     const start = new Date('2026-06-08T00:00:00Z'); // Mon
