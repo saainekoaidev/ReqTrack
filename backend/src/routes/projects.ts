@@ -212,7 +212,10 @@ projects.post('/:id/import/estimate-file', async (c) => {
 // 対象(level2)ごと(無ければ機能 level1 ごと)に、開発工程の後へレビュー工程を挿入する。
 // レビュワー=最上位(PM)→リーダーへ自動割付。レビュイー(開発担当)側にもレビュー工程を計上する。
 // 冪等: 既存の kind='review' を削除してから再生成する。
-export async function expandReviewsForProject(projectId: string): Promise<number> {
+export async function expandReviewsForProject(
+  projectId: string,
+  format: 'sync' | 'doc' = 'sync',
+): Promise<number> {
   const [allTasks, members, cfg] = await Promise.all([
     prisma.task.findMany({ where: { projectId } }),
     prisma.member.findMany({ orderBy: { createdAt: 'asc' } }),
@@ -254,26 +257,34 @@ export async function expandReviewsForProject(projectId: string): Promise<number
             )?.assigneeId ?? null
           : null;
 
+      // 対面(sync): レビュワー・レビュイー双方を同一区間に同期配置(reviewLinkId で紐付け)。
+      // 書面(doc): レビュワーのみ(レビュイーは拘束せず、その間別タスクを進められる)。
+      const canPair = format === 'sync' && revieweeId && revieweeId !== reviewer?.id;
+      const linkId = canPair ? `${group.id}:${s.wbsId}` : null;
+      const reviewerSuffix = format === 'doc' ? '(書面レビュー)' : '(レビュー)';
+
       // レビュワー側(PM 等)
       await prisma.task.create({
         data: {
           projectId,
           requirementId: group.requirementId,
           parentId: group.id,
-          name: `${s.name}(レビュー)`,
+          name: `${s.name}${reviewerSuffix}`,
           level: 3,
           wbsId: s.wbsId,
           phase: s.phase,
           estimateDays: s.estimateDays,
           estimateNote: s.estimateNote,
           kind: 'review',
+          reviewFormat: format,
+          reviewLinkId: linkId,
           assigneeId: reviewer?.id,
         },
       });
       created += 1;
 
-      // レビュイー側(開発担当)。担当が居て、レビュワーと別人なら計上。
-      if (revieweeId && revieweeId !== reviewer?.id) {
+      // レビュイー側(開発担当)。対面のときだけ同期ペアとして計上。
+      if (canPair) {
         await prisma.task.create({
           data: {
             projectId,
@@ -286,6 +297,8 @@ export async function expandReviewsForProject(projectId: string): Promise<number
             estimateDays: s.estimateDays,
             estimateNote: `${s.estimateNote} / レビュイー対応`,
             kind: 'review',
+            reviewFormat: format,
+            reviewLinkId: linkId,
             assigneeId: revieweeId,
           },
         });
@@ -296,20 +309,24 @@ export async function expandReviewsForProject(projectId: string): Promise<number
   return created;
 }
 
-// 互換: レビュー自動展開(include=true 相当)
+// 互換: レビュー自動展開(include=true 相当, 対面)
 projects.post('/:id/expand-reviews', async (c) => {
   const created = await expandReviewsForProject(c.req.param('id'));
   return c.json({ created }, 201);
 });
 
-// レビュー工程の有無を切り替える (US-044)。include=true で展開、false で全削除。
-const reviewsInput = z.object({ include: z.boolean() });
+// レビュー工程の有無・形態を切り替える (US-044 / US-047)。
+// include=true で展開(format: sync=対面 / doc=書面)、false で全削除。
+const reviewsInput = z.object({
+  include: z.boolean(),
+  format: z.enum(['sync', 'doc']).optional(),
+});
 projects.post('/:id/reviews', zValidator('json', reviewsInput), async (c) => {
   const projectId = c.req.param('id');
-  const { include } = c.req.valid('json');
+  const { include, format } = c.req.valid('json');
   if (include) {
-    const created = await expandReviewsForProject(projectId);
-    return c.json({ include: true, created });
+    const created = await expandReviewsForProject(projectId, format ?? 'sync');
+    return c.json({ include: true, format: format ?? 'sync', created });
   }
   const { count } = await prisma.task.deleteMany({ where: { projectId, kind: 'review' } });
   return c.json({ include: false, removed: count });

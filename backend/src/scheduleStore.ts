@@ -43,6 +43,8 @@ export async function scheduleProject(
       progress: t.progress,
       fixedStart: t.plannedStart,
       fixedEnd: t.plannedEnd,
+      // 対面レビューの同期ペア: 双方の空きが合う所へ同一区間で配置 (US-047)
+      syncGroup: t.reviewLinkId ?? undefined,
     })),
     new Date(`${startDate}T00:00:00.000Z`),
     holidays,
