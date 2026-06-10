@@ -22,8 +22,12 @@ export type GanttPatch = {
 
 // ガントチャート表示 (US-004 / US-015 / US-040)。
 // 左に WBS 3階層(機能/対象/作業)の表(折り畳み可)、右に稼働時間軸の連続バー(小数日対応・コマ無し)。
-const LEFT_COLS = '64px 220px 80px 74px 50px 92px 92px 84px 52px';
-const LEFT_WIDTH = 64 + 220 + 80 + 74 + 50 + 92 + 92 + 84 + 52; // = 808
+const LEFT_COLS = '60px 210px 78px 86px 66px 88px 88px 84px 66px';
+const LEFT_WIDTH = 60 + 210 + 78 + 86 + 66 + 88 + 88 + 84 + 66; // = 826
+// 工数/稼働率は 0.125 等の小数3位、進捗は 0.1% を入力できる刻み (US-054)
+const EST_STEP = 0.001;
+const UTIL_STEP = 0.001;
+const PROG_STEP = 0.1;
 const MIN_DAY_PX = 34;
 const ROW_H = 28; // データ行の固定高さ(本日線/イナズマ線の座標計算に使う, US-051)
 
@@ -230,7 +234,7 @@ function GanttRowView({
             <input
               type="number"
               min={0}
-              step={0.1}
+              step={EST_STEP}
               aria-label={`${t.wbsId ?? t.id} の工数`}
               defaultValue={t.estimateDays}
               onChange={(e) => {
@@ -247,9 +251,9 @@ function GanttRowView({
           {editable ? (
             <input
               type="number"
-              min={0.05}
+              min={0.001}
               max={1}
-              step={0.05}
+              step={UTIL_STEP}
               aria-label={`${t.wbsId ?? t.id} の稼働率`}
               defaultValue={t.utilizationRate ?? 1}
               onChange={(e) => {
@@ -292,7 +296,7 @@ function GanttRowView({
               type="number"
               min={0}
               max={100}
-              step={5}
+              step={PROG_STEP}
               aria-label={`${t.wbsId ?? t.id} の進捗率`}
               defaultValue={t.progress}
               onChange={(e) => {

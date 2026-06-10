@@ -15,12 +15,10 @@ export default function WbsEditor({
 }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [minStep, setMinStep] = useState(0.1);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.listMembers().then(setMembers).catch(() => {});
-    api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
   }, []);
 
   function reload() {
@@ -168,7 +166,7 @@ export default function WbsEditor({
                     <input
                       type="number"
                       min={0}
-                      step={minStep}
+                      step={0.001}
                       aria-label={`${t.wbsId ?? t.id} の工数`}
                       defaultValue={t.estimateDays}
                       disabled={!isLeaf}
@@ -176,15 +174,15 @@ export default function WbsEditor({
                         const v = Number(e.target.value);
                         if (!Number.isNaN(v) && v !== t.estimateDays) patch(t, { estimateDays: v });
                       }}
-                      style={{ width: '5rem' }}
+                      style={{ width: '5.5rem' }}
                     />
                   </td>
                   <td>
                     <input
                       type="number"
-                      min={0.05}
+                      min={0.001}
                       max={1}
-                      step={0.05}
+                      step={0.001}
                       aria-label={`${t.wbsId ?? t.id} の稼働率`}
                       defaultValue={t.utilizationRate ?? 1}
                       disabled={!isLeaf}
@@ -193,7 +191,7 @@ export default function WbsEditor({
                         if (!Number.isNaN(v) && v > 0 && v <= 1 && v !== t.utilizationRate)
                           patch(t, { utilizationRate: v });
                       }}
-                      style={{ width: '4.5rem' }}
+                      style={{ width: '5rem' }}
                     />
                   </td>
                   <td>

@@ -179,10 +179,11 @@ export function buildGantt(
       progress = 0;
     } else {
       const w = leaves.reduce((s, lf) => s + (lf.estimateDays || 0), 0);
-      progress =
+      const raw =
         w > 0
-          ? Math.round(leaves.reduce((s, lf) => s + (lf.progress ?? 0) * (lf.estimateDays || 0), 0) / w)
-          : Math.round(leaves.reduce((s, lf) => s + (lf.progress ?? 0), 0) / leaves.length);
+          ? leaves.reduce((s, lf) => s + (lf.progress ?? 0) * (lf.estimateDays || 0), 0) / w
+          : leaves.reduce((s, lf) => s + (lf.progress ?? 0), 0) / leaves.length;
+      progress = Math.round(raw * 10) / 10; // 0.1%単位 (US-054)
     }
     return {
       task,
@@ -219,11 +220,11 @@ export function overallProgress(tasks: Task[]): number {
   const leaves = tasks.filter((t) => !childIds.has(t.id) && t.kind !== 'efficiency');
   if (leaves.length === 0) return 0;
   const totalWeight = leaves.reduce((s, t) => s + (t.estimateDays || 0), 0);
-  if (totalWeight === 0) {
-    return Math.round(leaves.reduce((s, t) => s + t.progress, 0) / leaves.length);
-  }
-  const weighted = leaves.reduce((s, t) => s + t.progress * (t.estimateDays || 0), 0);
-  return Math.round(weighted / totalWeight);
+  const raw =
+    totalWeight === 0
+      ? leaves.reduce((s, t) => s + t.progress, 0) / leaves.length
+      : leaves.reduce((s, t) => s + t.progress * (t.estimateDays || 0), 0) / totalWeight;
+  return Math.round(raw * 10) / 10; // 0.1%単位 (US-054)
 }
 
 const WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
