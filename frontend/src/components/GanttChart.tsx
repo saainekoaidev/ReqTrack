@@ -23,10 +23,11 @@ export type GanttPatch = {
 // ガントチャート表示 (US-004 / US-015 / US-040)。
 // 左に WBS 3階層(機能/対象/作業)の表(折り畳み可)、右に稼働時間軸の連続バー(小数日対応・コマ無し)。
 // 表重視(全列) / チャート重視(No・タスク・進捗のみ。他は 0 幅で非表示) (US-057)
-const LEFT_COLS_FULL = '60px 210px 78px 86px 66px 88px 88px 84px 66px';
-const LEFT_WIDTH_FULL = 60 + 210 + 78 + 86 + 66 + 88 + 88 + 84 + 66; // = 826
-const LEFT_COLS_CHART = '46px 160px 0 0 0 0 0 0 58px';
-const LEFT_WIDTH_CHART = 46 + 160 + 58; // = 264
+// 列: No / タスク / 工程 / 工数 / 稼働率 / 開始 / 終了 / 担当 / 予定 / 進捗 (US-059 で予定を追加)
+const LEFT_COLS_FULL = '58px 200px 76px 82px 62px 84px 84px 80px 60px 64px';
+const LEFT_WIDTH_FULL = 58 + 200 + 76 + 82 + 62 + 84 + 84 + 80 + 60 + 64; // = 850
+const LEFT_COLS_CHART = '44px 150px 0 0 0 0 0 0 56px 58px';
+const LEFT_WIDTH_CHART = 44 + 150 + 56 + 58; // = 308
 // 工数/稼働率は 0.125 等の小数3位、進捗は 0.1% を入力できる刻み (US-054)
 const EST_STEP = 0.001;
 const UTIL_STEP = 0.001;
@@ -143,6 +144,7 @@ export default function GanttChart({
             <div className="g2-cell">開始</div>
             <div className="g2-cell">終了</div>
             <div className="g2-cell">担当</div>
+            <div className="g2-cell" title="基準日時点の予定進捗率">予定</div>
             <div className="g2-cell">進捗</div>
           </div>
           <div className="g2-chart">
@@ -166,6 +168,7 @@ export default function GanttChart({
               members={members}
               onPatch={onPatch}
               leftCols={leftCols}
+              slipDate={slipDate ?? null}
             />
           ))}
           <OverlayLines
@@ -202,6 +205,7 @@ function GanttRowView({
   members,
   onPatch,
   leftCols,
+  slipDate,
 }: {
   row: GanttRow;
   collapsed: boolean;
@@ -210,9 +214,12 @@ function GanttRowView({
   members?: Member[];
   onPatch?: (taskId: string, data: GanttPatch) => void;
   leftCols: string;
+  slipDate: Date | null;
 }) {
   const t = row.task;
   const isLeaf = !row.hasChildren;
+  // 基準日(イナズマ線の日)時点の予定進捗率 (US-059)
+  const expectedPct = expectedProgressAt(row.startDate, row.endDate, slipDate);
   const editable = !!onPatch && isLeaf;
   const color = phaseColor(t.phase);
   const pctLeft = row.startWT != null ? (row.startWT / totalWT) * 100 : 0;
@@ -317,6 +324,9 @@ function GanttRowView({
           ) : (
             t.assignee?.name ?? ''
           )}
+        </div>
+        <div className="g2-cell g2-num muted" title="基準日時点の予定進捗率">
+          {expectedPct == null ? '' : `${expectedPct}%`}
         </div>
         <div className="g2-cell g2-num">
           {editable ? (
@@ -450,4 +460,20 @@ function OverlayLines({
       </svg>
     </div>
   );
+}
+
+// 基準日時点の予定進捗率(%) を線形補間で算出する (US-059)。開始前=0、終了後=100。
+function expectedProgressAt(
+  startDate: Date | null,
+  endDate: Date | null,
+  slip: Date | null,
+): number | null {
+  if (!slip || !startDate || !endDate) return null;
+  const s = startDate.getTime();
+  const e = endDate.getTime();
+  const t = slip.getTime();
+  if (e <= s) return t >= e ? 100 : 0;
+  if (t <= s) return 0;
+  if (t >= e) return 100;
+  return Math.round(((t - s) / (e - s)) * 1000) / 10;
 }
