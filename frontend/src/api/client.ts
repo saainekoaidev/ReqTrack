@@ -296,7 +296,13 @@ export const api = {
     }),
   // レビュー自動展開 / 効率化調整 (US-014)
   expandReviews: (projectId: string) =>
-    request<Task[]>(`/api/projects/${projectId}/expand-reviews`, { method: 'POST' }),
+    request<{ created: number }>(`/api/projects/${projectId}/expand-reviews`, { method: 'POST' }),
+  // レビュー工程の有無を切り替え (US-044)。include=true で展開、false で全削除。
+  setReviews: (projectId: string, include: boolean) =>
+    request<{ include: boolean; created?: number; removed?: number }>(
+      `/api/projects/${projectId}/reviews`,
+      { method: 'POST', body: JSON.stringify({ include }) },
+    ),
   addEfficiency: (projectId: string, input: { estimateDays: number; note?: string }) =>
     request<Task>(`/api/projects/${projectId}/efficiency`, {
       method: 'POST',

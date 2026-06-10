@@ -208,44 +208,59 @@ projects.post('/:id/import/estimate-file', async (c) => {
   return c.json({ tasks: created }, 201);
 });
 
-// レビュー自動展開 (US-014)。開発工程の後に PL レビューを機能ごとに自動挿入する。
+// レビュー自動展開 (US-014 / US-040 / US-044)。
+// 対象(level2)ごと(無ければ機能 level1 ごと)に、開発工程の後へレビュー工程を挿入する。
+// レビュワー=最上位(PM)→リーダーへ自動割付。レビュイー(開発担当)側にもレビュー工程を計上する。
 // 冪等: 既存の kind='review' を削除してから再生成する。
-projects.post('/:id/expand-reviews', async (c) => {
-  const projectId = c.req.param('id');
-  const [features, members, cfg] = await Promise.all([
-    prisma.task.findMany({ where: { projectId, level: 1 } }),
+export async function expandReviewsForProject(projectId: string): Promise<number> {
+  const [allTasks, members, cfg] = await Promise.all([
+    prisma.task.findMany({ where: { projectId } }),
     prisma.member.findMany({ orderBy: { createdAt: 'asc' } }),
     getSettings(),
   ]);
-  // レビュワーは最上位(プロジェクト管理者)を優先し、居なければチームリーダー (US-043)
   const reviewer =
     members.find((m) => m.role === 'pm') ??
     members.find((m) => m.role === 'leader') ??
     members.find((m) => m.role === 'PL') ?? // 旧データ互換
     null;
+
   await prisma.task.deleteMany({ where: { projectId, kind: 'review' } });
 
-  // 設定のレビュー率/下限を各ルールに適用 (US-027)
   const rules = REVIEW_RULES.map((r) => ({ ...r, ratio: cfg.reviewRatio, min: cfg.reviewMinDays }));
 
-  const created = [];
-  for (const feature of features) {
-    const featNo = feature.wbsId ?? String(feature.id);
-    const devTasks = await prisma.task.findMany({
-      where: { projectId, kind: 'task', wbsId: { startsWith: `${featNo}.` } },
-    });
+  // グループ = 対象(level2)。無ければ機能(level1)。
+  const targets = allTasks.filter((t) => t.level === 2);
+  const groups = targets.length > 0 ? targets : allTasks.filter((t) => t.level === 1);
+
+  let created = 0;
+  for (const group of groups) {
+    const groupNo = group.wbsId ?? String(group.id);
+    const devTasks = allTasks.filter(
+      (t) => t.kind === 'task' && t.wbsId && t.wbsId.startsWith(`${groupNo}.`),
+    );
+    if (devTasks.length === 0) continue;
     const specs = computeReviewTasks(
-      featNo,
+      groupNo,
       devTasks.map((t) => ({ phase: t.phase, estimateDays: t.estimateDays })),
       rules,
     );
     for (const s of specs) {
-      const task = await prisma.task.create({
+      // レビュイー = 対象内で当該工程の開発担当(代表として最初の担当)
+      const rule = rules.find((r) => s.phase.includes(r.trigger));
+      const revieweeId =
+        rule != null
+          ? devTasks.find(
+              (t) => t.phase && t.phase.includes(rule.trigger) && !t.phase.includes('レビュー') && t.assigneeId,
+            )?.assigneeId ?? null
+          : null;
+
+      // レビュワー側(PM 等)
+      await prisma.task.create({
         data: {
           projectId,
-          requirementId: feature.requirementId,
-          parentId: feature.id,
-          name: s.name,
+          requirementId: group.requirementId,
+          parentId: group.id,
+          name: `${s.name}(レビュー)`,
           level: 3,
           wbsId: s.wbsId,
           phase: s.phase,
@@ -255,10 +270,49 @@ projects.post('/:id/expand-reviews', async (c) => {
           assigneeId: reviewer?.id,
         },
       });
-      created.push(task);
+      created += 1;
+
+      // レビュイー側(開発担当)。担当が居て、レビュワーと別人なら計上。
+      if (revieweeId && revieweeId !== reviewer?.id) {
+        await prisma.task.create({
+          data: {
+            projectId,
+            requirementId: group.requirementId,
+            parentId: group.id,
+            name: `${s.name}(レビュー対応)`,
+            level: 3,
+            wbsId: `${s.wbsId}b`,
+            phase: s.phase,
+            estimateDays: s.estimateDays,
+            estimateNote: `${s.estimateNote} / レビュイー対応`,
+            kind: 'review',
+            assigneeId: revieweeId,
+          },
+        });
+        created += 1;
+      }
     }
   }
-  return c.json(created, 201);
+  return created;
+}
+
+// 互換: レビュー自動展開(include=true 相当)
+projects.post('/:id/expand-reviews', async (c) => {
+  const created = await expandReviewsForProject(c.req.param('id'));
+  return c.json({ created }, 201);
+});
+
+// レビュー工程の有無を切り替える (US-044)。include=true で展開、false で全削除。
+const reviewsInput = z.object({ include: z.boolean() });
+projects.post('/:id/reviews', zValidator('json', reviewsInput), async (c) => {
+  const projectId = c.req.param('id');
+  const { include } = c.req.valid('json');
+  if (include) {
+    const created = await expandReviewsForProject(projectId);
+    return c.json({ include: true, created });
+  }
+  const { count } = await prisma.task.deleteMany({ where: { projectId, kind: 'review' } });
+  return c.json({ include: false, removed: count });
 });
 
 // AI 見積生成 (US-036)。Claude Code CLI(サブスク枠)で要件→タスク・工数・根拠を生成し WBS 化。

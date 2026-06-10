@@ -226,6 +226,17 @@ describe('POST /api/tasks/schedule バリデーション', () => {
   });
 });
 
+describe('POST /api/projects/:id/reviews バリデーション (US-044)', () => {
+  it('include が boolean でないと 400', async () => {
+    const res = await app.request('/api/projects/p1/reviews', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ include: 'yes' }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/projects/:id/ai-plan バリデーション (US-037)', () => {
   it('startDate の形式が不正だと 400(AI 実行前に弾く)', async () => {
     const res = await app.request('/api/projects/p1/ai-plan', {

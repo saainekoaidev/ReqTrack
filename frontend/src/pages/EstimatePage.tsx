@@ -20,6 +20,7 @@ export default function EstimatePage() {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [minStep, setMinStep] = useState(0.1);
   const [startDate, setStartDate] = useState('2026-06-08');
+  const [includeReviews, setIncludeReviews] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,24 +76,13 @@ export default function EstimatePage() {
     }
   }
 
-  // ガント初版を生成して進捗管理のガントへ
+  // ガントを生成して進捗管理のガントへ。レビュー工程の有無を反映してから割り付け (US-044)。
   async function generateAndGo() {
     if (!projectId) return;
     try {
+      await api.setReviews(projectId, includeReviews);
       await api.generateSchedule(projectId, startDate);
       finishToGantt();
-    } catch (e) {
-      setError(toMessage(e));
-    }
-  }
-
-  // レビュー自動展開 (US-014)
-  async function expandReviews() {
-    if (!projectId) return;
-    try {
-      await api.expandReviews(projectId);
-      loadTasks();
-      setError(null);
     } catch (e) {
       setError(toMessage(e));
     }
@@ -214,9 +204,6 @@ export default function EstimatePage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3>見積を確認・補正する</h3>
             <span style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <button type="button" className="btn-secondary" onClick={expandReviews}>
-                レビューを自動展開
-              </button>
               <button type="button" className="btn-secondary" onClick={addEfficiency}>
                 効率化調整を追加
               </button>
@@ -351,6 +338,14 @@ export default function EstimatePage() {
             上の見積でよければ、開始日を決めてガントを作成します。見積(人日)と稼働率から、土日・祝日を除いた
             稼働日でタスクを割り付けます。
           </p>
+          <label style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
+            <input
+              type="checkbox"
+              checked={includeReviews}
+              onChange={(e) => setIncludeReviews(e.target.checked)}
+            />{' '}
+            レビュー工程を入れる(各工程の後にレビューを自動展開。レビュワーは最上位=プロジェクト管理者へ自動割付、レビュイー側にも計上)
+          </label>
           <div className="inline-form" style={{ marginTop: 0 }}>
             <label>
               開始日:{' '}
