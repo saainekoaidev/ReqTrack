@@ -64,6 +64,8 @@ export interface GanttRow {
   endWT: number | null;
   /** 表示用集計: この行(配下含む)の工数合計(人日) */
   totalDays: number;
+  /** 達成率(%) 0-100。葉は自身、親は配下の葉を工数で加重平均 (US-048)。 */
+  progress: number;
   /** 表示用の開始/終了 datetime(配下の最小開始・最大終了)。 */
   startDate: Date | null;
   endDate: Date | null;
@@ -167,6 +169,19 @@ export function buildGantt(
     const totalDays = hasChildren
       ? Math.round(leaves.reduce((sum, lf) => sum + (lf.estimateDays || 0), 0) * 1000) / 1000
       : task.estimateDays || 0;
+    // 達成率: 葉は自身、親は配下の葉を工数で加重平均(工数0なら単純平均) (US-048)
+    let progress: number;
+    if (!hasChildren) {
+      progress = task.progress ?? 0;
+    } else if (leaves.length === 0) {
+      progress = 0;
+    } else {
+      const w = leaves.reduce((s, lf) => s + (lf.estimateDays || 0), 0);
+      progress =
+        w > 0
+          ? Math.round(leaves.reduce((s, lf) => s + (lf.progress ?? 0) * (lf.estimateDays || 0), 0) / w)
+          : Math.round(leaves.reduce((s, lf) => s + (lf.progress ?? 0), 0) / leaves.length);
+    }
     return {
       task,
       depth: (task.level ?? 3) - 1,
@@ -175,6 +190,7 @@ export function buildGantt(
       startWT,
       endWT,
       totalDays,
+      progress,
       startDate,
       endDate,
     };

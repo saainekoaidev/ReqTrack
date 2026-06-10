@@ -42,7 +42,8 @@ describe('GanttChart (US-008 進捗反映)', () => {
     );
     const fill = screen.getByTestId('progress-t1');
     expect(fill).toHaveStyle({ width: '40%' });
-    expect(screen.getByText('40%')).toBeInTheDocument();
+    // 進捗列とバーラベルの両方に 40% が出る (US-048)
+    expect(screen.getAllByText('40%').length).toBeGreaterThanOrEqual(1);
   });
 
   it('計画日が無ければ案内を表示', () => {
