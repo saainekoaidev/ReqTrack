@@ -10,6 +10,8 @@ import { dailyReports } from './routes/dailyReports.js';
 import { referenceProjects } from './routes/referenceProjects.js';
 import { settings } from './routes/settings.js';
 import { fsBrowse } from './routes/fs.js';
+import { projectKinds } from './routes/projectKinds.js';
+import { estimateTemplates } from './routes/estimateTemplates.js';
 
 // アプリ生成を関数化してテスト(app.request)から再利用できるようにする。
 export function createApp() {
@@ -28,6 +30,8 @@ export function createApp() {
   app.route('/api/members', members);
   app.route('/api/holidays', holidays);
   app.route('/api/tasks', tasks);
+  app.route('/api/project-kinds', projectKinds);
+  app.route('/api/estimate-templates', estimateTemplates);
 
   app.notFound((c) => c.json({ error: 'Not Found' }, 404));
 

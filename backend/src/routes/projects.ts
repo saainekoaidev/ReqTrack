@@ -7,6 +7,7 @@ import { computeReviewTasks, REVIEW_RULES } from '../domain/review.js';
 import { getSettings } from './settings.js';
 import { buildEstimateWorkbook } from '../excel.js';
 import { toDateKey } from '../domain/schedule.js';
+import { naturalWbsCompare } from '../domain/estimate.js';
 import { scheduleProject } from '../scheduleStore.js';
 import { expandWbs } from '../domain/wbs.js';
 import { runClaude } from '../claude-cli.js';
@@ -352,7 +353,8 @@ async function runAiEstimate(projectId: string): Promise<AiEstimateResult> {
   }
 
   const cfg = await getSettings();
-  const isExisting = project.kind === 'existing' && !!project.referenceProjectId;
+  // 参照資料が紐づく案件(既存改修・マイグレーション等)は既存モードで見積 (US-060)
+  const isExisting = !!project.referenceProjectId;
 
   const reqCtx = [];
   for (const r of requirements) {
@@ -450,6 +452,47 @@ projects.post('/:id/ai-plan', zValidator('json', aiPlanInput), async (c) => {
   if (!est.ok) return c.json({ error: est.error }, est.status);
   const { scheduled } = await scheduleProject(projectId, startDate);
   return c.json({ features: est.features, tasks: est.tasks, scheduled });
+});
+
+// 標準テンプレートを適用してWBSを作成する (US-060)。
+projects.post('/:id/apply-template', zValidator('json', z.object({ templateId: z.string().min(1) })), async (c) => {
+  const projectId = c.req.param('id');
+  const tmpl = await prisma.estimateTemplate.findUnique({ where: { id: c.req.valid('json').templateId } });
+  if (!tmpl) return c.json({ error: 'テンプレートが見つかりません。' }, 404);
+  const items = (tmpl.items as unknown as {
+    wbsId: string;
+    level: number;
+    name: string;
+    phase?: string;
+    estimateDays?: number;
+    utilizationRate?: number;
+    note?: string;
+  }[]).slice();
+  // wbsId 昇順(浅い→深い)で作成し、親を wbsId の接頭辞で解決
+  items.sort((a, b) => a.wbsId.split('.').length - b.wbsId.split('.').length || naturalWbsCompare(a.wbsId, b.wbsId));
+  const idByWbs = new Map<string, string>();
+  let created = 0;
+  for (const it of items) {
+    const parts = it.wbsId.split('.');
+    const parentWbs = parts.length > 1 ? parts.slice(0, -1).join('.') : null;
+    const t = await prisma.task.create({
+      data: {
+        projectId,
+        name: it.name,
+        level: it.level,
+        wbsId: it.wbsId,
+        parentId: parentWbs ? idByWbs.get(parentWbs) : undefined,
+        phase: it.phase,
+        estimateDays: it.estimateDays ?? 0,
+        utilizationRate: it.utilizationRate ?? 1,
+        estimateNote: it.note,
+        kind: 'task',
+      },
+    });
+    idByWbs.set(it.wbsId, t.id);
+    created += 1;
+  }
+  return c.json({ created }, 201);
 });
 
 // 効率化調整 (US-014)。複数機能同時実施の重複削減を負の工数 1 行で表現する。

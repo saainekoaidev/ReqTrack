@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, type Member, type Task } from '../api/client';
+import { api, type EstimateTemplate, type Member, type Task } from '../api/client';
 import { useCreate } from '../context/CreateContext';
 import { effortHours, spanWorkingDays, round3 } from '../lib/estimate';
 import { workerCandidates } from '../lib/roles';
@@ -21,12 +21,44 @@ export default function EstimatePage() {
   const [startDate, setStartDate] = useState('2026-06-08');
   const [includeReviews, setIncludeReviews] = useState(true);
   const [reviewFormat, setReviewFormat] = useState<'sync' | 'doc'>('sync');
+  const [templates, setTemplates] = useState<EstimateTemplate[]>([]);
+  const [templateId, setTemplateId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.listMembers().then(setMembers).catch(() => {});
+    api.listTemplates().then(setTemplates).catch(() => {});
   }, []);
+
+  // 定型(テンプレート)から WBS を作成 (US-060)
+  async function applyTemplate() {
+    if (!projectId || !templateId) return;
+    try {
+      const r = await api.applyTemplate(projectId, templateId);
+      setMessage(`定型から ${r.created} 件のタスクを作成しました。内容を確認・補正してください。`);
+      setError(null);
+      loadTasks();
+    } catch (e) {
+      setMessage(null);
+      setError(toMessage(e));
+    }
+  }
+
+  // 現在の WBS を組織の標準テンプレートとして保存 (US-060)
+  async function saveAsTemplate() {
+    if (!projectId) return;
+    const nm = window.prompt('テンプレート名を入力してください', `${draft?.name ?? ''} テンプレート`);
+    if (!nm) return;
+    try {
+      await api.saveTemplateFromProject({ projectId, name: nm, projectKind: draft?.kind ?? undefined });
+      api.listTemplates().then(setTemplates).catch(() => {});
+      setMessage(`テンプレート「${nm}」を保存しました(設定 > 案件区分・テンプレート で管理)。`);
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
 
   function loadTasks() {
     if (!projectId) return;
@@ -196,6 +228,23 @@ export default function EstimatePage() {
             手で WBS を組む(AIを使わない)
           </button>
         </div>
+        {templates.length > 0 && (
+          <div className="inline-form" style={{ marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <span className="muted">または定型(テンプレート)から:</span>
+            <select aria-label="テンプレート" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+              <option value="">(テンプレートを選択)</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.projectKind ? `（${t.projectKind}）` : ''} — {t.itemCount}件
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn-secondary" onClick={applyTemplate} disabled={!templateId}>
+              定型から作成
+            </button>
+          </div>
+        )}
       </div>
 
       {tasks.length > 0 && (
@@ -205,6 +254,9 @@ export default function EstimatePage() {
             <span style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <button type="button" className="btn-secondary" onClick={addEfficiency}>
                 効率化調整を追加
+              </button>
+              <button type="button" className="btn-secondary" onClick={saveAsTemplate}>
+                このWBSをテンプレ保存
               </button>
             </span>
           </div>
