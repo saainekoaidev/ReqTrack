@@ -1,6 +1,7 @@
 import { prisma } from './db.js';
 import { scheduleTasks, toDateKey } from './domain/schedule.js';
 import { naturalWbsCompare } from './domain/estimate.js';
+import { phaseRank } from './domain/phase.js';
 import { getSettings } from './routes/settings.js';
 
 // 見積(人日)・稼働率と祝日カレンダーから、稼働日ベースでタスクへ計画日を割り付けて永続化する。
@@ -15,10 +16,21 @@ export async function scheduleProject(
     getSettings(),
   ]);
   const holidays = new Set(holidayRows.map((h) => toDateKey(h.date)));
-  // 効率化調整(負)と工数0の集約行(機能/対象)はバー対象外。WBS順=工程順に並べる(依存順)。
+  // 親(対象)の wbsId を引くマップ。グループ順の決定に使う。
+  const wbsById = new Map(projectTasks.map((t) => [t.id, t.wbsId]));
+  const groupWbs = (t: (typeof projectTasks)[number]): string | null =>
+    (t.parentId ? wbsById.get(t.parentId) ?? null : null) ?? t.wbsId;
+  // 効率化調整(負)と工数0の集約行(機能/対象)はバー対象外。
+  // 並びは「対象(グループ)順 → 工程順 → WBS順」で、前工程→後工程の時系列で流す (US-045)。
   const schedulable = projectTasks
     .filter((t) => t.kind !== 'efficiency' && t.estimateDays > 0)
-    .sort((a, b) => naturalWbsCompare(a.wbsId, b.wbsId));
+    .sort((a, b) => {
+      const g = naturalWbsCompare(groupWbs(a), groupWbs(b));
+      if (g !== 0) return g;
+      const p = phaseRank(a.phase) - phaseRank(b.phase);
+      if (p !== 0) return p;
+      return naturalWbsCompare(a.wbsId, b.wbsId);
+    });
   const scheduled = scheduleTasks(
     schedulable.map((t) => ({
       id: t.id,
