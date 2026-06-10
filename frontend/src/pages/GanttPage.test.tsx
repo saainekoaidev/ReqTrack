@@ -54,6 +54,7 @@ describe('GanttPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'スケジュールを再生成' }));
 
     await waitFor(() => expect(screen.getByRole('table', { name: 'ガントチャート' })).toBeInTheDocument());
-    expect(screen.getByText('設計')).toBeInTheDocument();
+    // 葉行の名称はインライン編集の input として表示される (US-046)
+    expect(screen.getByDisplayValue('設計')).toBeInTheDocument();
   });
 });
