@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { Task } from '../api/client';
+import type { Member, Task } from '../api/client';
+import { workerCandidates } from '../lib/roles';
 import {
   buildGantt,
   weekdayJa,
@@ -8,6 +9,14 @@ import {
   phaseLegend,
   type GanttRow,
 } from '../lib/gantt';
+
+// 葉行の編集で更新できる項目 (US-046)
+export type GanttPatch = {
+  name?: string;
+  estimateDays?: number;
+  utilizationRate?: number;
+  assigneeId?: string | null;
+};
 
 // ガントチャート表示 (US-004 / US-015 / US-040)。
 // 左に WBS 3階層(機能/対象/作業)の表(折り畳み可)、右に稼働時間軸の連続バー(小数日対応・コマ無し)。
@@ -19,10 +28,15 @@ export default function GanttChart({
   tasks,
   holidays = new Set<string>(),
   hoursPerDay = 8,
+  members,
+  onPatch,
 }: {
   tasks: Task[];
   holidays?: ReadonlySet<string>;
   hoursPerDay?: number;
+  /** インライン編集 (US-046)。指定すると葉行の 名称/工数/稼働率/担当 を編集できる。 */
+  members?: Member[];
+  onPatch?: (taskId: string, data: GanttPatch) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const { rows, axis, totalWT, months } = buildGantt(tasks, holidays, hoursPerDay);
@@ -111,6 +125,8 @@ export default function GanttChart({
             collapsed={collapsed.has(row.task.id)}
             onToggle={() => toggle(row.task.id)}
             totalWT={totalWT}
+            members={members}
+            onPatch={onPatch}
           />
         ))}
       </div>
@@ -132,14 +148,19 @@ function GanttRowView({
   collapsed,
   onToggle,
   totalWT,
+  members,
+  onPatch,
 }: {
   row: GanttRow;
   collapsed: boolean;
   onToggle: () => void;
   totalWT: number;
+  members?: Member[];
+  onPatch?: (taskId: string, data: GanttPatch) => void;
 }) {
   const t = row.task;
   const isLeaf = !row.hasChildren;
+  const editable = !!onPatch && isLeaf;
   const color = phaseColor(t.phase);
   const pctLeft = row.startWT != null ? (row.startWT / totalWT) * 100 : 0;
   const pctWidth =
@@ -163,18 +184,87 @@ function GanttRowView({
           ) : (
             <span className="g2-toggle-spacer" />
           )}
-          <span style={{ fontWeight: row.depth === 0 ? 700 : row.depth === 1 ? 600 : 400 }}>
-            {t.name}
-          </span>
+          {editable ? (
+            <input
+              type="text"
+              aria-label={`${t.wbsId ?? t.id} の名称`}
+              defaultValue={t.name}
+              onBlur={(e) => {
+                if (e.target.value.trim() && e.target.value !== t.name)
+                  onPatch!(t.id, { name: e.target.value.trim() });
+              }}
+              style={{ width: '100%' }}
+            />
+          ) : (
+            <span style={{ fontWeight: row.depth === 0 ? 700 : row.depth === 1 ? 600 : 400 }}>
+              {t.name}
+            </span>
+          )}
           {t.kind === 'review' && <span className="badge badge-low"> レビュー</span>}
           {t.kind === 'efficiency' && <span className="badge badge-medium"> 効率化</span>}
         </div>
         <div className="g2-cell">{t.phase ?? ''}</div>
-        <div className="g2-cell g2-num">{row.totalDays || ''}</div>
-        <div className="g2-cell g2-num">{isLeaf ? `${Math.round((t.utilizationRate ?? 1) * 100)}%` : ''}</div>
+        <div className="g2-cell g2-num">
+          {editable ? (
+            <input
+              type="number"
+              min={0}
+              step={0.1}
+              aria-label={`${t.wbsId ?? t.id} の工数`}
+              defaultValue={t.estimateDays}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isNaN(v) && v !== t.estimateDays) onPatch!(t.id, { estimateDays: v });
+              }}
+              style={{ width: '100%' }}
+            />
+          ) : (
+            row.totalDays || ''
+          )}
+        </div>
+        <div className="g2-cell g2-num">
+          {editable ? (
+            <input
+              type="number"
+              min={0.05}
+              max={1}
+              step={0.05}
+              aria-label={`${t.wbsId ?? t.id} の稼働率`}
+              defaultValue={t.utilizationRate ?? 1}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isNaN(v) && v > 0 && v <= 1 && v !== t.utilizationRate)
+                  onPatch!(t.id, { utilizationRate: v });
+              }}
+              style={{ width: '100%' }}
+            />
+          ) : isLeaf ? (
+            `${Math.round((t.utilizationRate ?? 1) * 100)}%`
+          ) : (
+            ''
+          )}
+        </div>
         <div className="g2-cell">{fmtDateYmd(row.startDate)}</div>
         <div className="g2-cell">{fmtDateYmd(row.endDate)}</div>
-        <div className="g2-cell">{t.assignee?.name ?? ''}</div>
+        <div className="g2-cell">
+          {editable ? (
+            <select
+              aria-label={`${t.wbsId ?? t.id} の担当`}
+              value={t.assigneeId ?? ''}
+              onChange={(e) => onPatch!(t.id, { assigneeId: e.target.value || null })}
+              style={{ width: '100%' }}
+            >
+              <option value="">(未割当)</option>
+              {workerCandidates(members ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            t.assignee?.name ?? ''
+          )}
+        </div>
       </div>
       <div className="g2-chart">
         {row.startWT != null && (

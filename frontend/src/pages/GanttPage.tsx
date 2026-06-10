@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type Task } from '../api/client';
-import GanttChart from '../components/GanttChart';
+import { api, type Member, type Task } from '../api/client';
+import GanttChart, { type GanttPatch } from '../components/GanttChart';
 import { overallProgress, workloadByAssignee } from '../lib/gantt';
 import { useProject } from '../context/ProjectContext';
 
-// ガントチャート画面 (US-004 / US-015)。見積から初版を生成し、ce2 準拠の列で可視化する。
+// ガントチャート画面 (US-004 / US-015 / US-046)。見積から初版を生成し可視化、左表でインライン編集。
 export default function GanttPage() {
   const { projectId } = useProject();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
   const [hoursPerDay, setHoursPerDay] = useState(8);
   const [startDate, setStartDate] = useState('2026-06-08');
@@ -23,7 +24,20 @@ export default function GanttPage() {
       .then((hs) => setHolidays(new Set(hs.map((h) => h.date.slice(0, 10)))))
       .catch(() => {});
     api.getSettings().then((s) => setHoursPerDay(s.hoursPerDay)).catch(() => {});
+    api.listMembers().then(setMembers).catch(() => {});
   }, []);
+
+  // ガント左表のインライン編集 (US-046)。保存即時、バーは「再生成」で反映。
+  async function patchTask(taskId: string, data: GanttPatch) {
+    try {
+      const updated = await api.updateTask(taskId, data);
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      setMessage('変更を保存しました。「スケジュールを再生成」で日程に反映できます。');
+      setError(null);
+    } catch (e) {
+      setError(toMessage(e));
+    }
+  }
 
   useEffect(() => {
     if (!projectId) {
@@ -107,7 +121,17 @@ export default function GanttPage() {
       )}
 
       <div className="card">
-        <GanttChart tasks={tasks} holidays={holidays} hoursPerDay={hoursPerDay} />
+        <p className="muted" style={{ marginTop: 0 }}>
+          左の表で 名称・工数・稼働率・担当 を直接編集できます(保存即時)。日程へは「スケジュールを再生成」で反映。
+          タスクの追加/削除は「WBS編集」で行います。
+        </p>
+        <GanttChart
+          tasks={tasks}
+          holidays={holidays}
+          hoursPerDay={hoursPerDay}
+          members={members}
+          onPatch={patchTask}
+        />
       </div>
 
       {workload.length > 0 && (

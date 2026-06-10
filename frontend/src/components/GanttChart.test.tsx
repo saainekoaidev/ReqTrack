@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import GanttChart from './GanttChart';
 import type { Task } from '../api/client';
 
@@ -47,5 +48,30 @@ describe('GanttChart (US-008 進捗反映)', () => {
   it('計画日が無ければ案内を表示', () => {
     render(<GanttChart tasks={[task({ id: 'x' })]} />);
     expect(screen.getByText(/計画日が設定されたタスクがありません/)).toBeInTheDocument();
+  });
+
+  it('onPatch 指定時は葉行の工数をインライン編集して保存する (US-046)', async () => {
+    const onPatch = vi.fn();
+    render(
+      <GanttChart
+        tasks={[
+          task({
+            id: 't1',
+            wbsId: '1.1.1',
+            name: '設計',
+            estimateDays: 2,
+            plannedStart: '2026-06-08T09:00:00Z',
+            plannedEnd: '2026-06-09T17:00:00Z',
+          }),
+        ]}
+        members={[]}
+        onPatch={onPatch}
+      />,
+    );
+    const input = screen.getByLabelText('1.1.1 の工数');
+    await userEvent.clear(input);
+    await userEvent.type(input, '5');
+    input.blur();
+    expect(onPatch).toHaveBeenCalledWith('t1', { estimateDays: 5 });
   });
 });
