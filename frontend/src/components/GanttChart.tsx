@@ -232,7 +232,7 @@ function GanttRowView({
               step={0.1}
               aria-label={`${t.wbsId ?? t.id} の工数`}
               defaultValue={t.estimateDays}
-              onBlur={(e) => {
+              onChange={(e) => {
                 const v = Number(e.target.value);
                 if (!Number.isNaN(v) && v !== t.estimateDays) onPatch!(t.id, { estimateDays: v });
               }}
@@ -251,7 +251,7 @@ function GanttRowView({
               step={0.05}
               aria-label={`${t.wbsId ?? t.id} の稼働率`}
               defaultValue={t.utilizationRate ?? 1}
-              onBlur={(e) => {
+              onChange={(e) => {
                 const v = Number(e.target.value);
                 if (!Number.isNaN(v) && v > 0 && v <= 1 && v !== t.utilizationRate)
                   onPatch!(t.id, { utilizationRate: v });
