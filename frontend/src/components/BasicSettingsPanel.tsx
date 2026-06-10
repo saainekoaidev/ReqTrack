@@ -4,7 +4,8 @@ import { api, type Settings } from '../api/client';
 // 基本設定パネル (US-022 / US-027)。範囲制限つきで見積・スケジュールの基本値を編集する。
 type FieldKey = keyof Omit<Settings, 'id'>;
 const FIELDS: { key: FieldKey; label: string; min: number; max: number; step: number; help: string }[] = [
-  { key: 'hoursPerDay', label: '1日の作業時間(時間)', min: 1, max: 24, step: 0.5, help: '工賃計算・時間換算に使用' },
+  { key: 'dayStartHour', label: '標準稼働 開始時刻(時)', min: 0, max: 23, step: 1, help: 'ガントの1日の起点。至 = 開始 + 作業時間' },
+  { key: 'hoursPerDay', label: '1日の作業時間(時間)', min: 1, max: 24, step: 0.5, help: '工賃計算・時間換算・1日の幅' },
   { key: 'minEstimateDays', label: '見積の最小単位(人日)', min: 0.01, max: 1, step: 0.01, help: '工数入力の刻み(既定 0.1)' },
   { key: 'reviewRatio', label: 'レビュー率', min: 0, max: 1, step: 0.05, help: '対象工程の工数 × この率' },
   { key: 'reviewMinDays', label: 'レビュー下限(人日)', min: 0, max: 5, step: 0.05, help: 'レビュー工数の下限' },

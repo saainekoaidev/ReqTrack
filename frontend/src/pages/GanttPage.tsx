@@ -11,6 +11,7 @@ export default function GanttPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [holidays, setHolidays] = useState<ReadonlySet<string>>(new Set());
   const [hoursPerDay, setHoursPerDay] = useState(8);
+  const [dayStartHour, setDayStartHour] = useState(9);
   const [startDate, setStartDate] = useState('2026-06-08');
   const [slip, setSlip] = useState(''); // イナズマ線の基準日(空なら非表示) (US-051)
   const [showToday, setShowToday] = useState(true);
@@ -25,7 +26,13 @@ export default function GanttPage() {
       .listHolidays()
       .then((hs) => setHolidays(new Set(hs.map((h) => h.date.slice(0, 10)))))
       .catch(() => {});
-    api.getSettings().then((s) => setHoursPerDay(s.hoursPerDay)).catch(() => {});
+    api
+      .getSettings()
+      .then((s) => {
+        setHoursPerDay(s.hoursPerDay);
+        setDayStartHour(s.dayStartHour);
+      })
+      .catch(() => {});
     api.listMembers().then(setMembers).catch(() => {});
   }, []);
 
@@ -151,9 +158,10 @@ export default function GanttPage() {
           tasks={tasks}
           holidays={holidays}
           hoursPerDay={hoursPerDay}
+          dayStartHour={dayStartHour}
           members={members}
           onPatch={patchTask}
-          today={showToday ? new Date() : null}
+          today={showToday ? nowWallClockUtc() : null}
           slipDate={slip ? new Date(`${slip}T00:00:00Z`) : null}
         />
       </div>
@@ -183,6 +191,15 @@ export default function GanttPage() {
         </div>
       )}
     </section>
+  );
+}
+
+// 本日線は「現在のウォールクロック」を UTC エンコードして渡す(workingTime は getUTC* を使うため)。
+// これで時刻が進むと本日線も日の中を移動する (US-055)。
+function nowWallClockUtc(): Date {
+  const n = new Date();
+  return new Date(
+    Date.UTC(n.getFullYear(), n.getMonth(), n.getDate(), n.getHours(), n.getMinutes()),
   );
 }
 

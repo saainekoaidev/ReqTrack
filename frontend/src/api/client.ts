@@ -35,6 +35,7 @@ export interface Settings {
   reviewRatio: number;
   reviewMinDays: number;
   defaultUtilization: number;
+  dayStartHour: number;
 }
 
 export interface ReferenceFile {

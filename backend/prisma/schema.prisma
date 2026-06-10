@@ -92,6 +92,8 @@ model Settings {
   reviewRatio        Float    @default(0.3)
   reviewMinDays      Float    @default(0.1)
   defaultUtilization Float    @default(1.0)
+  // 標準稼働開始時刻(自)。1日の作業時間と合わせて 至 = 自 + hoursPerDay。ガントの日幅/日付線に使う (US-055)
+  dayStartHour       Int      @default(9)
   updatedAt          DateTime @updatedAt
 }
 

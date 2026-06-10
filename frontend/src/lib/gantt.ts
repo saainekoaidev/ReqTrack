@@ -39,11 +39,12 @@ export function workingTime(
   baseDay: Date,
   holidays: ReadonlySet<string>,
   hoursPerDay: number,
+  dayStartHour: number = DAY_START_HOUR,
 ): number {
   const day = utcMidnight(dt);
   const whole = countWorkingDays(baseDay, day, holidays);
   const hour = (dt.getTime() - day.getTime()) / HOUR_MS;
-  const frac = Math.min(1, Math.max(0, (hour - DAY_START_HOUR) / hoursPerDay));
+  const frac = Math.min(1, Math.max(0, (hour - dayStartHour) / hoursPerDay));
   return whole + frac;
 }
 
@@ -91,6 +92,7 @@ export function buildGantt(
   tasks: Task[],
   holidays: ReadonlySet<string> = new Set(),
   hoursPerDay = 8,
+  dayStartHour: number = DAY_START_HOUR,
 ): GanttModel {
   const planned = tasks.filter((t) => t.plannedStart && t.plannedEnd);
   if (planned.length === 0) return { rows: [], axis: [], totalWT: 0, months: [], baseDay: null };
@@ -110,7 +112,7 @@ export function buildGantt(
   // 軸全体長: 最終稼働日の終わり(= 稼働日数)。最低でも葉の最大終了位置を含める。
   let totalWT = axis.length;
   for (const t of planned) {
-    totalWT = Math.max(totalWT, workingTime(new Date(t.plannedEnd!), baseDay, holidays, hoursPerDay));
+    totalWT = Math.max(totalWT, workingTime(new Date(t.plannedEnd!), baseDay, holidays, hoursPerDay, dayStartHour));
   }
   if (totalWT <= 0) totalWT = 1;
 
@@ -157,8 +159,8 @@ export function buildGantt(
     for (const lf of leaves) {
       const s = new Date(lf.plannedStart!);
       const e = new Date(lf.plannedEnd!);
-      const sWT = workingTime(s, baseDay, holidays, hoursPerDay);
-      const eWT = workingTime(e, baseDay, holidays, hoursPerDay);
+      const sWT = workingTime(s, baseDay, holidays, hoursPerDay, dayStartHour);
+      const eWT = workingTime(e, baseDay, holidays, hoursPerDay, dayStartHour);
       if (startWT == null || sWT < startWT) {
         startWT = sWT;
         startDate = s;

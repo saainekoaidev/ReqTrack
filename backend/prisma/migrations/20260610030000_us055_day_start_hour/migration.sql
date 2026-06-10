@@ -1,0 +1,2 @@
+-- US-055: 標準稼働開始時刻
+ALTER TABLE "Settings" ADD COLUMN "dayStartHour" INTEGER NOT NULL DEFAULT 9;
