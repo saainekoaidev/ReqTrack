@@ -9,7 +9,6 @@ import { ProjectProvider, useProject } from '../context/ProjectContext';
 const menu: { to: string; icon: IconName; label: string }[] = [
   { to: '/manage/gantt', icon: 'gantt', label: 'ガントチャート' },
   { to: '/manage/wbs', icon: 'wbs', label: 'WBS編集' },
-  { to: '/manage/reports', icon: 'report', label: '進捗報告' },
   { to: '/manage/daily', icon: 'daily', label: '日報' },
   { to: '/manage/delays', icon: 'delay', label: '遅延対応' },
 ];

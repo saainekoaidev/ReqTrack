@@ -75,4 +75,28 @@ describe('GanttChart (US-008 進捗反映)', () => {
     input.blur();
     expect(onPatch).toHaveBeenCalledWith('t1', { estimateDays: 5 });
   });
+
+  it('進捗率をガント上でインライン編集して保存する (US-053)', async () => {
+    const onPatch = vi.fn();
+    render(
+      <GanttChart
+        tasks={[
+          task({
+            id: 't1',
+            wbsId: '1.1.1',
+            name: '設計',
+            progress: 0,
+            plannedStart: '2026-06-08T09:00:00Z',
+            plannedEnd: '2026-06-09T17:00:00Z',
+          }),
+        ]}
+        members={[]}
+        onPatch={onPatch}
+      />,
+    );
+    const input = screen.getByLabelText('1.1.1 の進捗率');
+    await userEvent.clear(input);
+    await userEvent.type(input, '50');
+    expect(onPatch).toHaveBeenCalledWith('t1', { progress: 50 });
+  });
 });

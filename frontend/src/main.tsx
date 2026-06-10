@@ -11,7 +11,6 @@ import EstimatePage from './pages/EstimatePage';
 import WbsEditPage from './pages/WbsEditPage';
 import GanttPage from './pages/GanttPage';
 import ManageWbsPage from './pages/ManageWbsPage';
-import ReportsPage from './pages/ReportsPage';
 import DailyReportsPage from './pages/DailyReportsPage';
 import DelaysPage from './pages/DelaysPage';
 import './styles/app.css';
@@ -38,7 +37,8 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="gantt" replace /> },
       { path: 'gantt', element: <GanttPage /> },
       { path: 'wbs', element: <ManageWbsPage /> },
-      { path: 'reports', element: <ReportsPage /> },
+      // 進捗報告(reports)はガントのインライン進捗入力に統合し廃止 (US-053)
+      { path: 'reports', element: <Navigate to="/manage/gantt" replace /> },
       { path: 'daily', element: <DailyReportsPage /> },
       { path: 'delays', element: <DelaysPage /> },
     ],
