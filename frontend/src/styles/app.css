@@ -39,9 +39,24 @@
   box-sizing: border-box;
 }
 
+/* 全体フォント基準。rem ベースの各サイズがこれに追従する。既定は中(14px)で全体的に小さめ (US-056)。 */
+html {
+  font-size: 14px;
+}
+html.fs-small {
+  font-size: 12.5px;
+}
+html.fs-medium {
+  font-size: 14px;
+}
+html.fs-large {
+  font-size: 16px;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
+  font-size: 0.95rem;
   color: var(--color-text);
   background: var(--color-bg);
 }
@@ -577,13 +592,18 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  font-size: 0.85rem;
+}
+
+.progress-summary strong {
+  font-size: 1rem;
 }
 
 .progress-track {
   flex: 1;
-  height: 14px;
+  height: 10px;
   background: var(--color-border);
-  border-radius: 7px;
+  border-radius: 5px;
   overflow: hidden;
 }
 
