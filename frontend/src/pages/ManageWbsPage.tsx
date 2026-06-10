@@ -9,6 +9,7 @@ export default function ManageWbsPage() {
   const { projectId, reload: reloadProjects } = useProject();
   const [startDate, setStartDate] = useState('');
   const [startTouched, setStartTouched] = useState(false);
+  const [includeReviews, setIncludeReviews] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,6 +27,7 @@ export default function ManageWbsPage() {
     if (!projectId) return;
     const sd = startDate || new Date().toISOString().slice(0, 10);
     try {
+      await api.setReviews(projectId, includeReviews);
       const updated = await api.generateSchedule(projectId, sd);
       const scheduled = updated.filter((t) => t.plannedStart).length;
       setMessage(
@@ -76,6 +78,14 @@ export default function ManageWbsPage() {
           開始日を起点に、同じ対象配下は工程順に直列、同じ担当は直列(別担当は並行)で全タスクを割り付け直します。
           <strong>進捗が入ったタスクは固定</strong>(完了=計画日固定、着手中=開始固定で工数変更分だけ終了が伸縮)され、未着手タスクのみが流れます。
         </p>
+        <label style={{ display: 'block', marginBottom: 'var(--space-2)' }}>
+          <input
+            type="checkbox"
+            checked={includeReviews}
+            onChange={(e) => setIncludeReviews(e.target.checked)}
+          />{' '}
+          レビュー工程を入れる(再生成時に再展開。レビュワーは最上位=プロジェクト管理者へ自動割付)
+        </label>
         <div className="inline-form" style={{ marginTop: 0 }}>
           <label>
             開始日:{' '}
