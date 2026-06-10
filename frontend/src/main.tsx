@@ -14,6 +14,9 @@ import ManageWbsPage from './pages/ManageWbsPage';
 import DailyReportsPage from './pages/DailyReportsPage';
 import DelaysPage from './pages/DelaysPage';
 import './styles/app.css';
+import { applyUiScale } from './lib/uiScale';
+
+applyUiScale();
 
 const router = createBrowserRouter([
   { path: '/', element: <LandingPage /> },

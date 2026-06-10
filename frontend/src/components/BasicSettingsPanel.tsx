@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Settings } from '../api/client';
+import { getUiScale, setUiScale, type UiScale } from '../lib/uiScale';
 
 // 基本設定パネル (US-022 / US-027)。範囲制限つきで見積・スケジュールの基本値を編集する。
 type FieldKey = keyof Omit<Settings, 'id'>;
@@ -14,6 +15,7 @@ const FIELDS: { key: FieldKey; label: string; min: number; max: number; step: nu
 
 export default function BasicSettingsPanel() {
   const [form, setForm] = useState<Omit<Settings, 'id'> | null>(null);
+  const [scale, setScale] = useState<UiScale>(getUiScale());
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,7 +99,27 @@ export default function BasicSettingsPanel() {
           設定を保存
         </button>
       </div>
-      <p className="muted">見積の対象範囲はシステム構築部分(基本設計〜結合テスト)です。</p>
+      <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--space-3) 0' }} />
+      <label>
+        表示サイズ:{' '}
+        <select
+          aria-label="表示サイズ"
+          value={scale}
+          onChange={(e) => {
+            const v = e.target.value as UiScale;
+            setScale(v);
+            setUiScale(v);
+          }}
+        >
+          <option value="small">小</option>
+          <option value="medium">中</option>
+          <option value="large">大</option>
+        </select>{' '}
+        <span className="muted">画面全体の文字・図形の大きさ(この端末に保存)</span>
+      </label>
+      <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
+        見積の対象範囲はシステム構築部分(基本設計〜結合テスト)です。
+      </p>
     </div>
   );
 }
