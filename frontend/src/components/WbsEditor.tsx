@@ -36,6 +36,8 @@ export default function WbsEditor({
   useEffect(reload, [projectId]);
 
   const ordered = sortTasksByWbs(tasks);
+  // 葉(子を持たない)タスクだけが工数/稼働率/担当を持つ。親は配下の集約 (US-049)。
+  const childIds = new Set(tasks.map((t) => t.parentId).filter(Boolean) as string[]);
 
   async function addFeature() {
     if (!projectId) return;
@@ -49,7 +51,8 @@ export default function WbsEditor({
 
   async function addChild(parent: Task) {
     if (!projectId) return;
-    const level = Math.min(3, (parent.level ?? 1) + 1);
+    // 任意の深さに分解可能 (US-049)。WBS 分解法に従い、葉が 1〜3 日程度になるまで掘れる。
+    const level = (parent.level ?? 1) + 1;
     try {
       await api.createTask({
         projectId,
@@ -119,7 +122,7 @@ export default function WbsEditor({
           </thead>
           <tbody>
             {ordered.map((t) => {
-              const isLeaf = (t.level ?? 3) >= 3;
+              const isLeaf = !childIds.has(t.id);
               return (
                 <tr key={t.id}>
                   <td className="muted">{t.wbsId ?? '—'}</td>
@@ -195,11 +198,9 @@ export default function WbsEditor({
                     </select>
                   </td>
                   <td style={{ whiteSpace: 'nowrap' }}>
-                    {(t.level ?? 3) < 3 && (
-                      <button type="button" className="btn-link-plain" onClick={() => addChild(t)}>
-                        子追加
-                      </button>
-                    )}{' '}
+                    <button type="button" className="btn-link-plain" onClick={() => addChild(t)}>
+                      子追加
+                    </button>{' '}
                     <button type="button" className="btn-link-plain" onClick={() => remove(t)}>
                       削除
                     </button>

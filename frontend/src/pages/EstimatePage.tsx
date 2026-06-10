@@ -228,11 +228,13 @@ export default function EstimatePage() {
               </tr>
             </thead>
             <tbody>
-              {tasks.map((t) => {
+              {(() => {
+                const childIds = new Set(tasks.map((x) => x.parentId).filter(Boolean) as string[]);
+                return tasks.map((t) => {
                 const d = drafts[t.id] ?? { estimate: '0', util: '1' };
                 const est = Number(d.estimate) || 0;
                 const util = Number(d.util) || 1;
-                const isGroup = (t.level ?? 3) < 3;
+                const isGroup = childIds.has(t.id);
                 return (
                   <tr key={t.id}>
                     <td className="muted">{t.wbsId ?? '—'}</td>
@@ -320,7 +322,8 @@ export default function EstimatePage() {
                     </td>
                   </tr>
                 );
-              })}
+                });
+              })()}
             </tbody>
             <tfoot>
               <tr>
