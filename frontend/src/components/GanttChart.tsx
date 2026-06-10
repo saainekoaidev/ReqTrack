@@ -22,8 +22,11 @@ export type GanttPatch = {
 
 // ガントチャート表示 (US-004 / US-015 / US-040)。
 // 左に WBS 3階層(機能/対象/作業)の表(折り畳み可)、右に稼働時間軸の連続バー(小数日対応・コマ無し)。
-const LEFT_COLS = '60px 210px 78px 86px 66px 88px 88px 84px 66px';
-const LEFT_WIDTH = 60 + 210 + 78 + 86 + 66 + 88 + 88 + 84 + 66; // = 826
+// 表重視(全列) / チャート重視(No・タスク・進捗のみ。他は 0 幅で非表示) (US-057)
+const LEFT_COLS_FULL = '60px 210px 78px 86px 66px 88px 88px 84px 66px';
+const LEFT_WIDTH_FULL = 60 + 210 + 78 + 86 + 66 + 88 + 88 + 84 + 66; // = 826
+const LEFT_COLS_CHART = '46px 160px 0 0 0 0 0 0 58px';
+const LEFT_WIDTH_CHART = 46 + 160 + 58; // = 264
 // 工数/稼働率は 0.125 等の小数3位、進捗は 0.1% を入力できる刻み (US-054)
 const EST_STEP = 0.001;
 const UTIL_STEP = 0.001;
@@ -54,6 +57,9 @@ export default function GanttChart({
   slipDate?: Date | null;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [chartFocus, setChartFocus] = useState(false); // false=表重視(基本), true=チャート重視 (US-057)
+  const leftCols = chartFocus ? LEFT_COLS_CHART : LEFT_COLS_FULL;
+  const leftWidth = chartFocus ? LEFT_WIDTH_CHART : LEFT_WIDTH_FULL;
   const { rows, axis, totalWT, months, baseDay } = buildGantt(
     tasks,
     holidays,
@@ -85,10 +91,20 @@ export default function GanttChart({
     acc += m.span;
   }
   const pct = (wt: number) => `${(wt / totalWT) * 100}%`;
-  const ganttMinWidth = LEFT_WIDTH + axis.length * MIN_DAY_PX;
+  const ganttMinWidth = leftWidth + axis.length * MIN_DAY_PX;
 
   return (
     <div className="gantt2-card">
+      <div className="gantt2-toolbar">
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          onClick={() => setChartFocus((v) => !v)}
+          title={chartFocus ? '入力エリアを広げる' : 'チャートを広げる'}
+        >
+          {chartFocus ? '◀ 入力エリアを広く' : 'チャートを広く ▶'}
+        </button>
+      </div>
       <div
         className="gantt2"
         style={{ minWidth: ganttMinWidth }}
@@ -97,7 +113,7 @@ export default function GanttChart({
       >
         {/* 月ヘッダ */}
         <div className="g2-row g2-head">
-          <div className="g2-left" style={{ gridTemplateColumns: LEFT_COLS }}>
+          <div className="g2-left" style={{ gridTemplateColumns: leftCols }}>
             <div className="g2-cell g2-span" style={{ gridColumn: '1 / -1' }}>
               年/月
             </div>
@@ -118,7 +134,7 @@ export default function GanttChart({
 
         {/* 列見出し + 日付軸 */}
         <div className="g2-row g2-head">
-          <div className="g2-left" style={{ gridTemplateColumns: LEFT_COLS }}>
+          <div className="g2-left" style={{ gridTemplateColumns: leftCols }}>
             <div className="g2-cell">No</div>
             <div className="g2-cell">タスク</div>
             <div className="g2-cell">工程</div>
@@ -149,6 +165,7 @@ export default function GanttChart({
               totalWT={totalWT}
               members={members}
               onPatch={onPatch}
+              leftCols={leftCols}
             />
           ))}
           <OverlayLines
@@ -160,6 +177,7 @@ export default function GanttChart({
             dayStartHour={dayStartHour}
             today={today ?? null}
             slipDate={slipDate ?? null}
+            leftWidth={leftWidth}
           />
         </div>
       </div>
@@ -183,6 +201,7 @@ function GanttRowView({
   totalWT,
   members,
   onPatch,
+  leftCols,
 }: {
   row: GanttRow;
   collapsed: boolean;
@@ -190,6 +209,7 @@ function GanttRowView({
   totalWT: number;
   members?: Member[];
   onPatch?: (taskId: string, data: GanttPatch) => void;
+  leftCols: string;
 }) {
   const t = row.task;
   const isLeaf = !row.hasChildren;
@@ -203,7 +223,7 @@ function GanttRowView({
 
   return (
     <div className="g2-row g2-data">
-      <div className="g2-left" style={{ gridTemplateColumns: LEFT_COLS }}>
+      <div className="g2-left" style={{ gridTemplateColumns: leftCols }}>
         <div className="g2-cell muted">{t.wbsId ?? ''}</div>
         <div
           className="g2-cell g2-name"
@@ -359,6 +379,7 @@ function OverlayLines({
   dayStartHour,
   today,
   slipDate,
+  leftWidth,
 }: {
   visible: GanttRow[];
   totalWT: number;
@@ -368,6 +389,7 @@ function OverlayLines({
   dayStartHour: number;
   today: Date | null;
   slipDate: Date | null;
+  leftWidth: number;
 }) {
   if (!baseDay || totalWT <= 0) return null;
   const height = visible.length * ROW_H;
@@ -402,7 +424,7 @@ function OverlayLines({
   return (
     <div
       className="g2-overlay"
-      style={{ position: 'absolute', top: 0, left: LEFT_WIDTH, right: 0, height, pointerEvents: 'none' }}
+      style={{ position: 'absolute', top: 0, left: leftWidth, right: 0, height, pointerEvents: 'none' }}
     >
       {/* viewBox 0..100 を幅へ、y は px。preserveAspectRatio none で x を全幅へ伸ばす。 */}
       <svg

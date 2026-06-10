@@ -743,6 +743,12 @@ button:disabled {
   width: 100%;
 }
 
+.gantt2-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0 var(--space-1);
+}
+
 .gantt2 {
   width: 100%;
   font-size: 0.78rem;
