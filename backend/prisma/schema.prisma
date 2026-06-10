@@ -132,7 +132,7 @@ model Task {
   plannedStart  DateTime?
   plannedEnd    DateTime?
   // 進捗率 0-100 (US-008)
-  progress      Int              @default(0)
+  progress      Float            @default(0)
   assignee      Member?          @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   assigneeId    String?
   createdAt     DateTime         @default(now())
@@ -186,7 +186,7 @@ model ProgressReport {
   memberId      String
   dailyReport   DailyReport? @relation(fields: [dailyReportId], references: [id], onDelete: Cascade)
   dailyReportId String?
-  progress      Int // 報告時点の進捗率 0-100
+  progress      Float // 報告時点の進捗率 0-100 (0.1%単位, US-054)
   comment       String?
   reportedAt    DateTime     @default(now())
 

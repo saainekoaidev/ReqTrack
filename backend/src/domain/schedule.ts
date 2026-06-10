@@ -37,7 +37,7 @@ export function expectedProgress(task: PlannedTask, now: Date): number {
   if (end <= start) return t >= end ? 100 : 0;
   if (t <= start) return 0;
   if (t >= end) return 100;
-  return Math.round(((t - start) / (end - start)) * 100);
+  return Math.round(((t - start) / (end - start)) * 1000) / 10; // 0.1%単位 (US-054)
 }
 
 /**
@@ -82,7 +82,7 @@ export function delayedMembers(
 
 function clampPercent(n: number): number {
   if (Number.isNaN(n)) return 0;
-  return Math.min(100, Math.max(0, Math.round(n)));
+  return Math.min(100, Math.max(0, Math.round(n * 10) / 10)); // 0.1%単位 (US-054)
 }
 
 // ---- リカバリプラン (US-011) ----

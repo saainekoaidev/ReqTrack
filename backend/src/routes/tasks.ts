@@ -31,7 +31,7 @@ const taskInput = z.object({
 
 const reportInput = z.object({
   memberId: z.string().min(1),
-  progress: z.number().int().min(0).max(100),
+  progress: z.number().min(0).max(100),
   comment: z.string().optional(),
 });
 
@@ -93,7 +93,7 @@ const taskPatch = z.object({
   plannedStart: z.string().datetime().nullable().optional(),
   plannedEnd: z.string().datetime().nullable().optional(),
   assigneeId: z.string().min(1).nullable().optional(),
-  progress: z.number().int().min(0).max(100).optional(),
+  progress: z.number().min(0).max(100).optional(),
   phase: z.string().nullable().optional(),
   estimateNote: z.string().nullable().optional(),
 });

@@ -18,7 +18,6 @@ export default function EstimatePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [minStep, setMinStep] = useState(0.1);
   const [startDate, setStartDate] = useState('2026-06-08');
   const [includeReviews, setIncludeReviews] = useState(true);
   const [reviewFormat, setReviewFormat] = useState<'sync' | 'doc'>('sync');
@@ -26,7 +25,6 @@ export default function EstimatePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getSettings().then((s) => setMinStep(s.minEstimateDays)).catch(() => {});
     api.listMembers().then(setMembers).catch(() => {});
   }, []);
 
@@ -251,7 +249,7 @@ export default function EstimatePage() {
                         <input
                           type="number"
                           min={0}
-                          step={minStep}
+                          step={0.001}
                           aria-label={`${t.name} の工数`}
                           value={d.estimate}
                           onChange={(e) =>
@@ -267,9 +265,9 @@ export default function EstimatePage() {
                       ) : (
                         <input
                           type="number"
-                          min={0.05}
+                          min={0.001}
                           max={1}
-                          step={0.05}
+                          step={0.001}
                           aria-label={`${t.name} の稼働率`}
                           value={d.util}
                           onChange={(e) =>

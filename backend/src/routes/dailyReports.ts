@@ -39,7 +39,7 @@ const createInput = z.object({
     .array(
       z.object({
         taskId: z.string().min(1),
-        progress: z.number().int().min(0).max(100),
+        progress: z.number().min(0).max(100),
         comment: z.string().optional(),
       }),
     )
