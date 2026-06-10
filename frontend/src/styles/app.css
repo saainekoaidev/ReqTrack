@@ -734,6 +734,24 @@ button:disabled {
   min-height: 28px;
 }
 
+/* データ行は本日線/イナズマ線の座標計算のため固定高 (US-051) */
+.g2-data {
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.g2-today-line {
+  stroke: #1c7ed6;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.g2-slip-line {
+  fill: none;
+  stroke: #e8590c;
+  stroke-width: 1.5;
+}
+
 .g2-head {
   position: sticky;
   top: 0;

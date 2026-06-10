@@ -3,6 +3,7 @@ import type { Member, Task } from '../api/client';
 import { workerCandidates } from '../lib/roles';
 import {
   buildGantt,
+  workingTime,
   weekdayJa,
   fmtDateYmd,
   phaseColor,
@@ -23,6 +24,7 @@ export type GanttPatch = {
 const LEFT_COLS = '64px 220px 80px 74px 50px 92px 92px 84px 52px';
 const LEFT_WIDTH = 64 + 220 + 80 + 74 + 50 + 92 + 92 + 84 + 52; // = 808
 const MIN_DAY_PX = 34;
+const ROW_H = 28; // データ行の固定高さ(本日線/イナズマ線の座標計算に使う, US-051)
 
 export default function GanttChart({
   tasks,
@@ -30,6 +32,8 @@ export default function GanttChart({
   hoursPerDay = 8,
   members,
   onPatch,
+  today,
+  slipDate,
 }: {
   tasks: Task[];
   holidays?: ReadonlySet<string>;
@@ -37,9 +41,13 @@ export default function GanttChart({
   /** インライン編集 (US-046)。指定すると葉行の 名称/工数/稼働率/担当 を編集できる。 */
   members?: Member[];
   onPatch?: (taskId: string, data: GanttPatch) => void;
+  /** 本日線の日付 (US-051)。未指定なら描画しない。 */
+  today?: Date | null;
+  /** イナズマ線(実績進捗線)の基準日 (US-051)。未指定なら描画しない。 */
+  slipDate?: Date | null;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const { rows, axis, totalWT, months } = buildGantt(tasks, holidays, hoursPerDay);
+  const { rows, axis, totalWT, months, baseDay } = buildGantt(tasks, holidays, hoursPerDay);
 
   if (rows.length === 0 || axis.length === 0) {
     return (
@@ -119,17 +127,28 @@ export default function GanttChart({
           </div>
         </div>
 
-        {visible.map((row) => (
-          <GanttRowView
-            key={row.task.id}
-            row={row}
-            collapsed={collapsed.has(row.task.id)}
-            onToggle={() => toggle(row.task.id)}
+        <div className="g2-body" style={{ position: 'relative' }}>
+          {visible.map((row) => (
+            <GanttRowView
+              key={row.task.id}
+              row={row}
+              collapsed={collapsed.has(row.task.id)}
+              onToggle={() => toggle(row.task.id)}
+              totalWT={totalWT}
+              members={members}
+              onPatch={onPatch}
+            />
+          ))}
+          <OverlayLines
+            visible={visible}
             totalWT={totalWT}
-            members={members}
-            onPatch={onPatch}
+            baseDay={baseDay}
+            holidays={holidays}
+            hoursPerDay={hoursPerDay}
+            today={today ?? null}
+            slipDate={slipDate ?? null}
           />
-        ))}
+        </div>
       </div>
 
       <div className="gantt-legend">
@@ -170,7 +189,7 @@ function GanttRowView({
       : 0;
 
   return (
-    <div className="g2-row">
+    <div className="g2-row g2-data">
       <div className="g2-left" style={{ gridTemplateColumns: LEFT_COLS }}>
         <div className="g2-cell muted">{t.wbsId ?? ''}</div>
         <div
@@ -293,6 +312,79 @@ function GanttRowView({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// 本日線(縦線)とイナズマ線(実績進捗線)のオーバーレイ (US-051)。
+// チャート領域(左カラムの右側)に重ね、行は固定高さ ROW_H 前提で y を算出する。
+function OverlayLines({
+  visible,
+  totalWT,
+  baseDay,
+  holidays,
+  hoursPerDay,
+  today,
+  slipDate,
+}: {
+  visible: GanttRow[];
+  totalWT: number;
+  baseDay: Date | null;
+  holidays: ReadonlySet<string>;
+  hoursPerDay: number;
+  today: Date | null;
+  slipDate: Date | null;
+}) {
+  if (!baseDay || totalWT <= 0) return null;
+  const height = visible.length * ROW_H;
+  const xOf = (wt: number) => Math.min(100, Math.max(0, (wt / totalWT) * 100)); // 0..100
+
+  const todayWT = today ? workingTime(today, baseDay, holidays, hoursPerDay) : null;
+  const slipWT = slipDate ? workingTime(slipDate, baseDay, holidays, hoursPerDay) : null;
+
+  // イナズマ線の頂点: 上端(基準日)→各行の達成位置→下端(基準日)
+  let slipPoints = '';
+  if (slipWT != null) {
+    const pts: string[] = [`${xOf(slipWT)},0`];
+    visible.forEach((row, i) => {
+      const y = i * ROW_H + ROW_H / 2;
+      let wt = slipWT;
+      if (row.startWT != null && row.endWT != null) {
+        wt = row.startWT + (row.progress / 100) * (row.endWT - row.startWT);
+      }
+      pts.push(`${xOf(wt)},${y}`);
+    });
+    pts.push(`${xOf(slipWT)},${height}`);
+    slipPoints = pts.join(' ');
+  }
+
+  return (
+    <div
+      className="g2-overlay"
+      style={{ position: 'absolute', top: 0, left: LEFT_WIDTH, right: 0, height, pointerEvents: 'none' }}
+    >
+      {/* viewBox 0..100 を幅へ、y は px。preserveAspectRatio none で x を全幅へ伸ばす。 */}
+      <svg
+        width="100%"
+        height={height}
+        viewBox={`0 0 100 ${height}`}
+        preserveAspectRatio="none"
+        style={{ overflow: 'visible' }}
+      >
+        {todayWT != null && todayWT >= 0 && todayWT <= totalWT && (
+          <line
+            x1={xOf(todayWT)}
+            y1={0}
+            x2={xOf(todayWT)}
+            y2={height}
+            className="g2-today-line"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+        {slipPoints && (
+          <polyline points={slipPoints} className="g2-slip-line" vectorEffect="non-scaling-stroke" />
+        )}
+      </svg>
     </div>
   );
 }
