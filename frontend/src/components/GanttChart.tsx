@@ -17,6 +17,7 @@ export type GanttPatch = {
   estimateDays?: number;
   utilizationRate?: number;
   assigneeId?: string | null;
+  progress?: number;
 };
 
 // ガントチャート表示 (US-004 / US-015 / US-040)。
@@ -285,7 +286,26 @@ function GanttRowView({
             t.assignee?.name ?? ''
           )}
         </div>
-        <div className="g2-cell g2-num">{row.progress}%</div>
+        <div className="g2-cell g2-num">
+          {editable ? (
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={5}
+              aria-label={`${t.wbsId ?? t.id} の進捗率`}
+              defaultValue={t.progress}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isNaN(v) && v >= 0 && v <= 100 && v !== t.progress)
+                  onPatch!(t.id, { progress: v });
+              }}
+              style={{ width: '100%' }}
+            />
+          ) : (
+            `${row.progress}%`
+          )}
+        </div>
       </div>
       <div className="g2-chart">
         {row.startWT != null && (
