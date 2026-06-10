@@ -9,7 +9,10 @@ import { getSettings } from './routes/settings.js';
 export async function scheduleProject(
   projectId: string,
   startDate: string,
+  opts: { anchorProgress?: boolean } = {},
 ): Promise<{ scheduled: number }> {
+  // anchorProgress=false(リセット/再作成)時は進捗の固定を無視し、初期状態のチャートへ戻す (US-058)
+  const anchorProgress = opts.anchorProgress !== false;
   const [projectTasks, holidayRows, cfg, deps] = await Promise.all([
     prisma.task.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } }),
     prisma.holiday.findMany(),
@@ -47,10 +50,10 @@ export async function scheduleProject(
       // 依存: 同一対象(親)配下を工程順に直列。要員: 同一担当を直列。
       groupKey: t.parentId ?? undefined,
       resourceKey: t.assigneeId ?? undefined,
-      // 進捗のあるタスクは開始を固定(再生成で未来へ動かさない) (US-042)
-      progress: t.progress,
-      fixedStart: t.plannedStart,
-      fixedEnd: t.plannedEnd,
+      // 進捗のあるタスクは開始を固定(再生成で未来へ動かさない) (US-042)。リセット時は固定しない (US-058)
+      progress: anchorProgress ? t.progress : 0,
+      fixedStart: anchorProgress ? t.plannedStart : null,
+      fixedEnd: anchorProgress ? t.plannedEnd : null,
       // 対面レビューの同期ペア: 双方の空きが合う所へ同一区間で配置 (US-047)
       syncGroup: t.reviewLinkId ?? undefined,
       // 明示的な前提タスク (US-050)

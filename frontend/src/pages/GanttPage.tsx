@@ -59,15 +59,20 @@ export default function GanttPage() {
       .catch((e: unknown) => setError(toMessage(e)));
   }, [projectId]);
 
-  async function regenerate() {
+  // 更新(reset=false): 編集を日程へ反映(進捗のあるタスクは固定)。
+  // リセット(reset=true): 進捗の固定を無視して初期状態のチャートへ戻す (US-058)。
+  async function regenerate(reset = false) {
     if (!projectId) return;
+    if (reset && !window.confirm('進捗の固定を無視して、初期状態のチャートに作り直します。よろしいですか?')) return;
     try {
-      const updated = await api.generateSchedule(projectId, startDate);
+      const updated = await api.generateSchedule(projectId, startDate, reset);
       setTasks(updated);
       const scheduled = updated.filter((t) => t.plannedStart).length;
       setMessage(
         scheduled > 0
-          ? `スケジュールを再生成しました(${scheduled} 件のタスクを配置)。`
+          ? reset
+            ? `初期状態に作り直しました(${scheduled} 件を配置)。`
+            : `スケジュールを更新しました(${scheduled} 件を配置)。`
           : '配置対象のタスクがありません。工数(人日)が 0 より大きいタスクが必要です(見積を入力してください)。',
       );
       setError(null);
@@ -92,7 +97,7 @@ export default function GanttPage() {
       )}
 
       <div className="card">
-        <div className="inline-form" style={{ marginTop: 0 }}>
+        <div className="inline-form" style={{ marginTop: 0, flexWrap: 'wrap' }}>
           <label>
             開始日:{' '}
             <input
@@ -102,18 +107,57 @@ export default function GanttPage() {
               onChange={(e) => setStartDate(e.target.value)}
             />
           </label>
-          <button type="button" onClick={regenerate} disabled={!projectId}>
-            スケジュールを再生成
+          <button type="button" onClick={() => regenerate(false)} disabled={!projectId}>
+            更新
           </button>
-          {projectId && (
-            <a className="btn-link" href={api.estimateXlsxUrl(projectId)}>
-              見積Excelをダウンロード
-            </a>
+          <label>
+            イナズマ線の基準日:{' '}
+            <input
+              type="date"
+              aria-label="イナズマ線の基準日"
+              value={slip}
+              onChange={(e) => setSlip(e.target.value)}
+            />
+          </label>
+          {slip && (
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setSlip('')}>
+              消す
+            </button>
           )}
         </div>
         <p className="muted" style={{ marginTop: 'var(--space-2)' }}>
-          見積(人日)と稼働率をもとに、土日・祝日を除いた稼働日でタスクを割り付け直します。初版は新規作成の「見積」で生成されます。
+          編集(工数・稼働率・担当・進捗・前提)を「更新」で日程へ反映します(進捗のあるタスクは固定)。
+          タスクの追加/削除は「WBS編集」で行います。
         </p>
+        <details className="gantt-admin">
+          <summary>ガント管理</summary>
+          <div className="inline-form" style={{ marginTop: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={showToday}
+                onChange={(e) => setShowToday(e.target.checked)}
+              />{' '}
+              本日線を表示
+            </label>
+            {projectId && (
+              <a className="btn-link btn-sm" href={api.estimateXlsxUrl(projectId)}>
+                見積Excelをダウンロード
+              </a>
+            )}
+            <button
+              type="button"
+              className="btn-danger btn-sm"
+              onClick={() => regenerate(true)}
+              disabled={!projectId}
+            >
+              リセット(初期状態に作り直す)
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 'var(--space-1)' }}>
+            リセットは進捗の固定を無視して開始日から全タスクを引き直します(初版相当)。
+          </p>
+        </details>
       </div>
 
       {tasks.length > 0 && (
@@ -130,30 +174,6 @@ export default function GanttPage() {
       )}
 
       <div className="card">
-        <p className="muted" style={{ marginTop: 0 }}>
-          左の表で 名称・工数・稼働率・担当 を直接編集できます(保存即時)。日程へは「スケジュールを再生成」で反映。
-          タスクの追加/削除は「WBS編集」で行います。
-        </p>
-        <div className="inline-form" style={{ marginTop: 0, marginBottom: 'var(--space-2)' }}>
-          <label>
-            <input type="checkbox" checked={showToday} onChange={(e) => setShowToday(e.target.checked)} />{' '}
-            本日線
-          </label>
-          <label>
-            イナズマ線の基準日:{' '}
-            <input
-              type="date"
-              aria-label="イナズマ線の基準日"
-              value={slip}
-              onChange={(e) => setSlip(e.target.value)}
-            />
-          </label>
-          {slip && (
-            <button type="button" className="btn-secondary" onClick={() => setSlip('')}>
-              イナズマ線を消す
-            </button>
-          )}
-        </div>
         <GanttChart
           tasks={tasks}
           holidays={holidays}

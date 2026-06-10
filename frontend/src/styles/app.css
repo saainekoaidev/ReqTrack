@@ -749,6 +749,18 @@ button:disabled {
   padding: 2px 0 var(--space-1);
 }
 
+.gantt-admin {
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
+}
+
+.gantt-admin > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
 .gantt2 {
   width: 100%;
   font-size: 0.78rem;
