@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type Member, type Task } from '../api/client';
 import { sortTasksByWbs, nextFeatureWbsId, nextChildWbsId } from '../lib/wbs';
+import { workerCandidates } from '../lib/roles';
 
 // WBS 編集テーブル (US-018 / US-041)。新規作成と進捗管理の両方で共有する。
 // 指定プロジェクトの階層タスクを 追加/削除/変更(名称・工程・工数・稼働率・担当)できる。
@@ -186,7 +187,7 @@ export default function WbsEditor({
                       onChange={(e) => patch(t, { assigneeId: e.target.value || null })}
                     >
                       <option value="">(未割当)</option>
-                      {members.map((m) => (
+                      {workerCandidates(members).map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
                         </option>

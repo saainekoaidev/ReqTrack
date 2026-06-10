@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, type Member } from '../api/client';
+import { ROLE_OPTIONS, roleLabel } from '../lib/roles';
 
-// 要員登録パネル (US-005 / 設定タブ US-022)。
+// 要員登録パネル (US-005 / 設定タブ US-022 / 役割 US-043)。
 export default function MembersPanel() {
   const [members, setMembers] = useState<Member[]>([]);
   const [name, setName] = useState('');
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState('member');
   const [email, setEmail] = useState('');
   const [rate, setRate] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -20,13 +21,13 @@ export default function MembersPanel() {
     try {
       const m = await api.createMember({
         name: name.trim(),
-        role: role.trim() || undefined,
+        role: role || undefined,
         email: email.trim() || undefined,
         hourlyRate: rate.trim() ? Number(rate) : undefined,
       });
       setMembers((p) => [...p, m]);
       setName('');
-      setRole('');
+      setRole('member');
       setEmail('');
       setRate('');
       setError(null);
@@ -60,7 +61,7 @@ export default function MembersPanel() {
             <li key={m.id}>
               <span>
                 {m.name}
-                {m.role ? `（${m.role}）` : ''}
+                <span className="muted">（{roleLabel(m.role)}）</span>
                 {m.email ? <span className="muted"> {m.email}</span> : null}
                 {m.hourlyRate != null ? (
                   <span className="muted"> {m.hourlyRate.toLocaleString()} 円/時</span>
@@ -75,7 +76,13 @@ export default function MembersPanel() {
       )}
       <form onSubmit={add} className="inline-form">
         <input type="text" placeholder="氏名" aria-label="要員氏名" value={name} onChange={(e) => setName(e.target.value)} />
-        <input type="text" placeholder="役割 (任意, 例: PL)" aria-label="役割" value={role} onChange={(e) => setRole(e.target.value)} />
+        <select aria-label="役割" value={role} onChange={(e) => setRole(e.target.value)}>
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r.value} value={r.value}>
+              {r.label}
+            </option>
+          ))}
+        </select>
         <input type="email" placeholder="メール (任意)" aria-label="メール" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input type="number" min={0} step={100} placeholder="単価 円/時 (任意)" aria-label="単価(円/時)" value={rate} onChange={(e) => setRate(e.target.value)} style={{ width: '9rem' }} />
         <button type="submit">要員を登録</button>
