@@ -212,11 +212,17 @@ projects.post('/:id/import/estimate-file', async (c) => {
 // 冪等: 既存の kind='review' を削除してから再生成する。
 projects.post('/:id/expand-reviews', async (c) => {
   const projectId = c.req.param('id');
-  const [features, reviewer, cfg] = await Promise.all([
+  const [features, members, cfg] = await Promise.all([
     prisma.task.findMany({ where: { projectId, level: 1 } }),
-    prisma.member.findFirst({ where: { role: 'PL' }, orderBy: { createdAt: 'asc' } }),
+    prisma.member.findMany({ orderBy: { createdAt: 'asc' } }),
     getSettings(),
   ]);
+  // レビュワーは最上位(プロジェクト管理者)を優先し、居なければチームリーダー (US-043)
+  const reviewer =
+    members.find((m) => m.role === 'pm') ??
+    members.find((m) => m.role === 'leader') ??
+    members.find((m) => m.role === 'PL') ?? // 旧データ互換
+    null;
   await prisma.task.deleteMany({ where: { projectId, kind: 'review' } });
 
   // 設定のレビュー率/下限を各ルールに適用 (US-027)

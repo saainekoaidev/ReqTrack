@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, type Member, type Task } from '../api/client';
 import { useCreate } from '../context/CreateContext';
 import { effortHours, spanWorkingDays, round3 } from '../lib/estimate';
+import { workerCandidates } from '../lib/roles';
 
 // 3. 見積・ガント生成 (US-036 / US-037 / US-038 / US-039)。
 // AI見積はガントへ直行せず、見積内容(工数/稼働率/見積根拠/担当)を確認・補正してから
@@ -311,7 +312,7 @@ export default function EstimatePage() {
                           onChange={(e) => patch(t.id, { assigneeId: e.target.value || null })}
                         >
                           <option value="">(未割当)</option>
-                          {members.map((m) => (
+                          {workerCandidates(members).map((m) => (
                             <option key={m.id} value={m.id}>
                               {m.name}
                             </option>
