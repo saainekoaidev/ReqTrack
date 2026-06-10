@@ -154,7 +154,7 @@ export default function GanttPage() {
           members={members}
           onPatch={patchTask}
           today={showToday ? new Date() : null}
-          slipDate={slip ? new Date(`${slip}T12:00:00Z`) : null}
+          slipDate={slip ? new Date(`${slip}T00:00:00Z`) : null}
         />
       </div>
 

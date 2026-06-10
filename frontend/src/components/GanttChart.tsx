@@ -340,21 +340,26 @@ function OverlayLines({
   const xOf = (wt: number) => Math.min(100, Math.max(0, (wt / totalWT) * 100)); // 0..100
 
   const todayWT = today ? workingTime(today, baseDay, holidays, hoursPerDay) : null;
-  const slipWT = slipDate ? workingTime(slipDate, baseDay, holidays, hoursPerDay) : null;
+  // イナズマ線の基準は「その日の終了時点(右端)」= 稼働日インデックス + 1.0 (US-052)
+  const slipWT =
+    slipDate != null ? Math.floor(workingTime(slipDate, baseDay, holidays, hoursPerDay)) + 1 : null;
 
-  // イナズマ線の頂点: 上端(基準日)→各行の達成位置→下端(基準日)
+  // イナズマ線: 行境界で基準日(右端)へ戻り、各行で進捗バーの頂点へ向かうスパイク形 (US-052)
   let slipPoints = '';
   if (slipWT != null) {
-    const pts: string[] = [`${xOf(slipWT)},0`];
+    const sx = xOf(slipWT);
+    const pts: string[] = [`${sx},0`];
     visible.forEach((row, i) => {
-      const y = i * ROW_H + ROW_H / 2;
+      const midY = i * ROW_H + ROW_H / 2;
+      const bottomY = (i + 1) * ROW_H;
       let wt = slipWT;
       if (row.startWT != null && row.endWT != null) {
+        // 進捗バーの頂点(達成位置)。バーが基準日より後ろから始まる場合は基準日のまま。
         wt = row.startWT + (row.progress / 100) * (row.endWT - row.startWT);
       }
-      pts.push(`${xOf(wt)},${y}`);
+      pts.push(`${xOf(wt)},${midY}`); // 進捗頂点へ
+      pts.push(`${sx},${bottomY}`); // 次の行境界で基準日へ戻る
     });
-    pts.push(`${xOf(slipWT)},${height}`);
     slipPoints = pts.join(' ');
   }
 
