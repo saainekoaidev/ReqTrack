@@ -14,6 +14,7 @@ const DEFAULTS = {
   reviewRatio: 0.3,
   reviewMinDays: 0.1,
   defaultUtilization: 1.0,
+  dayStartHour: 9,
 };
 
 export async function getSettings() {
@@ -29,6 +30,7 @@ const settingsInput = z.object({
   reviewRatio: z.number().min(0).max(1),
   reviewMinDays: z.number().min(0).max(5),
   defaultUtilization: z.number().gt(0).max(1),
+  dayStartHour: z.number().int().min(0).max(23),
 });
 
 settings.put('/', zValidator('json', settingsInput), async (c) => {

@@ -59,6 +59,7 @@ export async function scheduleProject(
     new Date(`${startDate}T00:00:00.000Z`),
     holidays,
     cfg.hoursPerDay,
+    cfg.dayStartHour,
   );
   await prisma.$transaction(
     scheduled.map((s) =>

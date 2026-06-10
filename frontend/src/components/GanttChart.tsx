@@ -35,6 +35,7 @@ export default function GanttChart({
   tasks,
   holidays = new Set<string>(),
   hoursPerDay = 8,
+  dayStartHour = 9,
   members,
   onPatch,
   today,
@@ -43,6 +44,7 @@ export default function GanttChart({
   tasks: Task[];
   holidays?: ReadonlySet<string>;
   hoursPerDay?: number;
+  dayStartHour?: number;
   /** インライン編集 (US-046)。指定すると葉行の 名称/工数/稼働率/担当 を編集できる。 */
   members?: Member[];
   onPatch?: (taskId: string, data: GanttPatch) => void;
@@ -52,7 +54,12 @@ export default function GanttChart({
   slipDate?: Date | null;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const { rows, axis, totalWT, months, baseDay } = buildGantt(tasks, holidays, hoursPerDay);
+  const { rows, axis, totalWT, months, baseDay } = buildGantt(
+    tasks,
+    holidays,
+    hoursPerDay,
+    dayStartHour,
+  );
 
   if (rows.length === 0 || axis.length === 0) {
     return (
@@ -150,6 +157,7 @@ export default function GanttChart({
             baseDay={baseDay}
             holidays={holidays}
             hoursPerDay={hoursPerDay}
+            dayStartHour={dayStartHour}
             today={today ?? null}
             slipDate={slipDate ?? null}
           />
@@ -348,6 +356,7 @@ function OverlayLines({
   baseDay,
   holidays,
   hoursPerDay,
+  dayStartHour,
   today,
   slipDate,
 }: {
@@ -356,6 +365,7 @@ function OverlayLines({
   baseDay: Date | null;
   holidays: ReadonlySet<string>;
   hoursPerDay: number;
+  dayStartHour: number;
   today: Date | null;
   slipDate: Date | null;
 }) {
@@ -363,10 +373,12 @@ function OverlayLines({
   const height = visible.length * ROW_H;
   const xOf = (wt: number) => Math.min(100, Math.max(0, (wt / totalWT) * 100)); // 0..100
 
-  const todayWT = today ? workingTime(today, baseDay, holidays, hoursPerDay) : null;
+  const todayWT = today ? workingTime(today, baseDay, holidays, hoursPerDay, dayStartHour) : null;
   // イナズマ線の基準は「その日の終了時点(右端)」= 稼働日インデックス + 1.0 (US-052)
   const slipWT =
-    slipDate != null ? Math.floor(workingTime(slipDate, baseDay, holidays, hoursPerDay)) + 1 : null;
+    slipDate != null
+      ? Math.floor(workingTime(slipDate, baseDay, holidays, hoursPerDay, dayStartHour)) + 1
+      : null;
 
   // イナズマ線: 行境界で基準日(右端)へ戻り、各行で進捗バーの頂点へ向かうスパイク形 (US-052)
   let slipPoints = '';
