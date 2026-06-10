@@ -365,10 +365,10 @@ export const api = {
   createDailyReport: (input: DailyReportInput) =>
     request<DailyReport>('/api/daily-reports', { method: 'POST', body: JSON.stringify(input) }),
   // ガント初版生成 (US-004)
-  generateSchedule: (projectId: string, startDate: string) =>
+  generateSchedule: (projectId: string, startDate: string, reset = false) =>
     request<Task[]>('/api/tasks/schedule', {
       method: 'POST',
-      body: JSON.stringify({ projectId, startDate }),
+      body: JSON.stringify({ projectId, startDate, reset }),
     }),
   // 進捗報告 (US-007 → 進捗率反映 US-008)
   addReport: (taskId: string, input: { memberId: string; progress: number; comment?: string }) =>

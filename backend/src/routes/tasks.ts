@@ -167,11 +167,13 @@ tasks.put('/:id/predecessors', zValidator('json', predInput), async (c) => {
 const scheduleInput = z.object({
   projectId: z.string().min(1),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate は YYYY-MM-DD 形式'),
+  // reset=true: 進捗の固定を無視して初期状態へ再作成 (US-058)
+  reset: z.boolean().optional(),
 });
 
 tasks.post('/schedule', zValidator('json', scheduleInput), async (c) => {
-  const { projectId, startDate } = c.req.valid('json');
-  await scheduleProject(projectId, startDate);
+  const { projectId, startDate, reset } = c.req.valid('json');
+  await scheduleProject(projectId, startDate, { anchorProgress: !reset });
   const updated = await prisma.task.findMany({
     where: { projectId },
     orderBy: [{ plannedStart: 'asc' }, { createdAt: 'asc' }],

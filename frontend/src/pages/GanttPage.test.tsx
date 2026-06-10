@@ -51,7 +51,7 @@ describe('GanttPage', () => {
       expect(screen.getByText(/計画日が設定されたタスクがありません/)).toBeInTheDocument(),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'スケジュールを再生成' }));
+    await userEvent.click(screen.getByRole('button', { name: '更新' }));
 
     await waitFor(() => expect(screen.getByRole('table', { name: 'ガントチャート' })).toBeInTheDocument());
     // 葉行の名称はインライン編集の input として表示される (US-046)
