@@ -196,3 +196,25 @@ model ProgressReport {
   @@index([memberId])
   @@index([dailyReportId])
 }
+
+/// 案件区分マスタ (US-060)。設定で増減・修正できる。新規開発/既存改修/マイグレーション を初期登録。
+model ProjectKind {
+  id                String   @id @default(cuid())
+  name              String
+  note              String?
+  /// 既存資料(参照資料)を必要とするか(既存改修・マイグレーション等)
+  requiresReference Boolean  @default(false)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+}
+
+/// 見積/タスクの標準テンプレート (US-060)。items に WBS 項目の配列を JSON で保持。
+model EstimateTemplate {
+  id            String   @id @default(cuid())
+  name          String
+  /// 紐づく案件区分(任意)。一致する区分の作成時に候補として優先表示する
+  projectKind   String?
+  /// [{ wbsId, level, name, phase?, estimateDays, utilizationRate?, note? }]
+  items         Json
+  createdAt     DateTime @default(now())
+}

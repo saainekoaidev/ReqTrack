@@ -71,6 +71,21 @@ export interface Holiday {
   name: string;
 }
 
+export interface ProjectKind {
+  id: string;
+  name: string;
+  note: string | null;
+  requiresReference: boolean;
+  sortOrder: number;
+}
+
+export interface EstimateTemplate {
+  id: string;
+  name: string;
+  projectKind: string | null;
+  itemCount: number;
+}
+
 export interface Member {
   id: string;
   name: string;
@@ -217,11 +232,31 @@ export const api = {
   createProject: (input: {
     name: string;
     description?: string;
-    kind?: 'new' | 'existing';
+    kind?: string;
     referenceProjectId?: string;
   }) => request<Project>('/api/projects', { method: 'POST', body: JSON.stringify(input) }),
 
   deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+
+  // 案件区分マスタ / 見積テンプレート (US-060)
+  listProjectKinds: () => request<ProjectKind[]>('/api/project-kinds'),
+  createProjectKind: (input: { name: string; note?: string; requiresReference?: boolean; sortOrder?: number }) =>
+    request<ProjectKind>('/api/project-kinds', { method: 'POST', body: JSON.stringify(input) }),
+  updateProjectKind: (id: string, input: { name: string; note?: string; requiresReference?: boolean; sortOrder?: number }) =>
+    request<ProjectKind>(`/api/project-kinds/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  deleteProjectKind: (id: string) => request<void>(`/api/project-kinds/${id}`, { method: 'DELETE' }),
+  listTemplates: () => request<EstimateTemplate[]>('/api/estimate-templates'),
+  saveTemplateFromProject: (input: { projectId: string; name: string; projectKind?: string }) =>
+    request<{ id: string; name: string; itemCount: number }>('/api/estimate-templates/from-project', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  deleteTemplate: (id: string) => request<void>(`/api/estimate-templates/${id}`, { method: 'DELETE' }),
+  applyTemplate: (projectId: string, templateId: string) =>
+    request<{ created: number }>(`/api/projects/${projectId}/apply-template`, {
+      method: 'POST',
+      body: JSON.stringify({ templateId }),
+    }),
   // AI 見積生成 (US-036)。Claude Code CLI(サブスク枠)で実行。
   aiEstimate: (projectId: string) =>
     request<{ features: number; tasks: number }>(`/api/projects/${projectId}/ai-estimate`, {

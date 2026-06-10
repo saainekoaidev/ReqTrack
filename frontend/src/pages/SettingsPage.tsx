@@ -5,15 +5,17 @@ import MembersPanel from '../components/MembersPanel';
 import HolidaysPanel from '../components/HolidaysPanel';
 import ReferenceProjectsPanel from '../components/ReferenceProjectsPanel';
 import ProjectsPanel from '../components/ProjectsPanel';
+import ProjectKindsPanel from '../components/ProjectKindsPanel';
 import { Icon, type IconName } from '../components/Icon';
 
-// 設定。タブ切替で 基本設定 / 要員 / 休日 / 参照資料 / プロジェクト。
-type TabKey = 'basic' | 'members' | 'holidays' | 'references' | 'projects';
+// 設定。タブ切替で 基本設定 / 要員 / 休日 / 参照資料 / 案件区分 / プロジェクト。
+type TabKey = 'basic' | 'members' | 'holidays' | 'references' | 'kinds' | 'projects';
 const tabs: { key: TabKey; label: string; icon: IconName }[] = [
   { key: 'basic', label: '基本設定', icon: 'settings' },
   { key: 'members', label: '要員', icon: 'member' },
   { key: 'holidays', label: '休日', icon: 'holiday' },
   { key: 'references', label: '参照資料', icon: 'folder' },
+  { key: 'kinds', label: '案件区分・テンプレート', icon: 'estimate' },
   { key: 'projects', label: 'プロジェクト', icon: 'manage' },
 ];
 
@@ -44,6 +46,7 @@ export default function SettingsPage() {
           {tab === 'members' && <MembersPanel />}
           {tab === 'holidays' && <HolidaysPanel />}
           {tab === 'references' && <ReferenceProjectsPanel />}
+          {tab === 'kinds' && <ProjectKindsPanel />}
           {tab === 'projects' && <ProjectsPanel />}
         </div>
       </main>

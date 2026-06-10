@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, type ReferenceProject } from '../api/client';
+import { api, type ProjectKind, type ReferenceProject } from '../api/client';
 import { useCreate } from '../context/CreateContext';
 
-// 1. プロジェクト作成 (US-020 / US-024 / US-038)。
-// 作成前: 名称・区分を入力して作成。作成後: 入力を非活性表示にし「やり直し」「次へ」のみ。
+// 1. プロジェクト作成 (US-020 / US-024 / US-038 / US-060)。
+// 作成前: 名称・区分(マスタ)を入力して作成。作成後: 入力を非活性表示にし「やり直し」「次へ」のみ。
 export default function NewProjectPage() {
   const { draft, loaded, setDraft, clearDraft } = useCreate();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [kind, setKind] = useState<'new' | 'existing'>('new');
+  const [kinds, setKinds] = useState<ProjectKind[]>([]);
+  const [kindId, setKindId] = useState('');
   const [referenceProjectId, setReferenceProjectId] = useState('');
   const [refProjects, setRefProjects] = useState<ReferenceProject[]>([]);
   const [busy, setBusy] = useState(false);
@@ -19,12 +20,21 @@ export default function NewProjectPage() {
 
   useEffect(() => {
     api.listReferenceProjects().then(setRefProjects).catch(() => {});
+    api
+      .listProjectKinds()
+      .then((ks) => {
+        setKinds(ks);
+        if (ks[0]) setKindId(ks[0].id);
+      })
+      .catch(() => {});
   }, []);
+
+  const selectedKind = kinds.find((k) => k.id === kindId);
 
   async function create() {
     if (!name.trim() || busy) return;
-    if (kind === 'existing' && !referenceProjectId) {
-      setError('既存案件では参照資料プロジェクトを選択してください(設定 > 参照資料 で登録)');
+    if (selectedKind?.requiresReference && !referenceProjectId) {
+      setError(`「${selectedKind.name}」では参照資料プロジェクトを選択してください(設定 > 参照資料 で登録)`);
       return;
     }
     setBusy(true);
@@ -32,8 +42,8 @@ export default function NewProjectPage() {
       const p = await api.createProject({
         name: name.trim(),
         description: description.trim() || undefined,
-        kind,
-        referenceProjectId: kind === 'existing' ? referenceProjectId : undefined,
+        kind: selectedKind?.name,
+        referenceProjectId: selectedKind?.requiresReference ? referenceProjectId : undefined,
       });
       setDraft(p.id);
       navigate('/create/requirements');
@@ -54,7 +64,7 @@ export default function NewProjectPage() {
       clearDraft();
       setName('');
       setDescription('');
-      setKind('new');
+      setKindId(kinds[0]?.id ?? '');
       setReferenceProjectId('');
       setError(null);
     } catch (e) {
@@ -87,8 +97,8 @@ export default function NewProjectPage() {
             <dt>概要</dt>
             <dd>{draft.description || '（なし）'}</dd>
             <dt>案件区分</dt>
-            <dd>{draft.kind === 'existing' ? '既存改修' : '新規開発'}</dd>
-            {draft.kind === 'existing' && (
+            <dd>{draft.kind || '（未設定）'}</dd>
+            {draft.referenceProjectId && (
               <>
                 <dt>参照資料</dt>
                 <dd>{refName ?? '（不明）'}</dd>
@@ -148,20 +158,26 @@ export default function NewProjectPage() {
           }}
         >
           <legend>案件区分</legend>
-          <label style={{ marginRight: 'var(--space-3)' }}>
-            <input type="radio" name="kind" checked={kind === 'new'} onChange={() => setKind('new')} />{' '}
-            新規開発
-          </label>
           <label>
-            <input
-              type="radio"
-              name="kind"
-              checked={kind === 'existing'}
-              onChange={() => setKind('existing')}
-            />{' '}
-            既存改修
+            区分:{' '}
+            <select aria-label="案件区分" value={kindId} onChange={(e) => setKindId(e.target.value)}>
+              {kinds.length === 0 && <option value="">(読み込み中)</option>}
+              {kinds.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.name}
+                </option>
+              ))}
+            </select>
           </label>
-          {kind === 'existing' && (
+          {selectedKind?.note && (
+            <p className="muted" style={{ marginTop: 'var(--space-1)' }}>
+              {selectedKind.note}
+            </p>
+          )}
+          <p className="muted" style={{ marginTop: 'var(--space-1)' }}>
+            案件区分は <Link to="/settings">設定 &gt; 案件区分</Link> で増減・編集できます。
+          </p>
+          {selectedKind?.requiresReference && (
             <div style={{ marginTop: 'var(--space-2)' }}>
               <label>
                 参照資料プロジェクト:{' '}
@@ -179,7 +195,7 @@ export default function NewProjectPage() {
                 </select>
               </label>
               <p className="muted" style={{ marginTop: 'var(--space-1)' }}>
-                既存改修は登録済みの参照資料を見積の参照に含めます。未登録なら{' '}
+                この区分は登録済みの参照資料を見積の参照に含めます。未登録なら{' '}
                 <Link to="/settings">設定 &gt; 参照資料</Link> で登録・スキャンしてください。
               </p>
             </div>
