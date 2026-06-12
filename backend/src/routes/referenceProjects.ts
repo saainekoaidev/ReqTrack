@@ -184,6 +184,26 @@ referenceProjects.get('/:id/search', zValidator('query', searchQuery), async (c)
   return c.json(rows);
 });
 
+// 参照資料プロジェクトの更新 (US-061)。名称・資料フォルダ・メモを変更できる。
+// rootPath を変えたら内容が変わるため、スキャン結果(scannedAt)はリセットして再スキャンを促す。
+referenceProjects.put('/:id', zValidator('json', createInput), async (c) => {
+  const id = c.req.param('id');
+  const data = c.req.valid('json');
+  const current = await prisma.referenceProject.findUnique({ where: { id } });
+  if (!current) return c.json({ error: 'Not Found' }, 404);
+  const rootChanged = current.rootPath !== data.rootPath;
+  const updated = await prisma.referenceProject.update({
+    where: { id },
+    data: {
+      name: data.name,
+      rootPath: data.rootPath,
+      note: data.note ?? null,
+      ...(rootChanged ? { scannedAt: null } : {}),
+    },
+  });
+  return c.json(updated);
+});
+
 referenceProjects.delete('/:id', async (c) => {
   const id = c.req.param('id');
   await prisma.referenceProject.delete({ where: { id } });

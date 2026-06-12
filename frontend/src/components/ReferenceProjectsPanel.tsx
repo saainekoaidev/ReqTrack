@@ -11,6 +11,36 @@ export default function ReferenceProjectsPanel() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanningId, setScanningId] = useState<string | null>(null);
+  // 編集 (US-061)
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRoot, setEditRoot] = useState('');
+  const [editNote, setEditNote] = useState('');
+
+  function startEdit(r: ReferenceProject) {
+    setEditingId(r.id);
+    setEditName(r.name);
+    setEditRoot(r.rootPath);
+    setEditNote(r.note ?? '');
+    setError(null);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editName.trim() || !editRoot.trim()) return;
+    try {
+      await api.updateReferenceProject(editingId, {
+        name: editName.trim(),
+        rootPath: editRoot.trim(),
+        note: editNote.trim() || undefined,
+      });
+      setEditingId(null);
+      setMessage('参照資料プロジェクトを更新しました。資料フォルダを変えた場合は「スキャン」で再取り込みしてください。');
+      setError(null);
+      reload();
+    } catch (e) {
+      setError(msg(e));
+    }
+  }
 
   function reload() {
     api.listReferenceProjects().then(setList).catch((e: unknown) => setError(msg(e)));
@@ -91,32 +121,73 @@ export default function ReferenceProjectsPanel() {
             </tr>
           </thead>
           <tbody>
-            {list.map((r) => (
-              <tr key={r.id}>
-                <td>{r.name}</td>
-                <td className="muted">{r.rootPath}</td>
-                <td>{r._count?.files ?? 0}</td>
-                <td className="muted">{r.scannedAt ? r.scannedAt.slice(0, 10) : '未スキャン'}</td>
-                <td style={{ whiteSpace: 'nowrap', display: 'flex', gap: 'var(--space-1)' }}>
-                  <button
-                    type="button"
-                    className="btn-sm"
-                    onClick={() => scan(r.id)}
-                    disabled={scanningId !== null}
-                  >
-                    {scanningId === r.id ? 'スキャン中…' : 'スキャン'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-sm btn-danger"
-                    onClick={() => remove(r.id)}
-                    disabled={scanningId !== null}
-                  >
-                    削除
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {list.map((r) =>
+              editingId === r.id ? (
+                <tr key={r.id}>
+                  <td>
+                    <input
+                      type="text"
+                      aria-label={`${r.name} の名称を編集`}
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </td>
+                  <td colSpan={3}>
+                    <FolderField value={editRoot} onChange={setEditRoot} ariaLabel="資料フォルダのパスを編集" />
+                    <input
+                      type="text"
+                      placeholder="メモ(任意)"
+                      aria-label="メモを編集"
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      style={{ width: '100%', marginTop: 'var(--space-1)' }}
+                    />
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap', display: 'flex', gap: 'var(--space-1)' }}>
+                    <button type="button" className="btn-sm" onClick={saveEdit}>
+                      保存
+                    </button>
+                    <button type="button" className="btn-sm btn-secondary" onClick={() => setEditingId(null)}>
+                      取消
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={r.id}>
+                  <td>{r.name}</td>
+                  <td className="muted">{r.rootPath}</td>
+                  <td>{r._count?.files ?? 0}</td>
+                  <td className="muted">{r.scannedAt ? r.scannedAt.slice(0, 10) : '未スキャン'}</td>
+                  <td style={{ whiteSpace: 'nowrap', display: 'flex', gap: 'var(--space-1)' }}>
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      onClick={() => scan(r.id)}
+                      disabled={scanningId !== null}
+                    >
+                      {scanningId === r.id ? 'スキャン中…' : 'スキャン'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sm btn-secondary"
+                      onClick={() => startEdit(r)}
+                      disabled={scanningId !== null}
+                    >
+                      編集
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sm btn-danger"
+                      onClick={() => remove(r.id)}
+                      disabled={scanningId !== null}
+                    >
+                      削除
+                    </button>
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       )}
