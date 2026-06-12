@@ -277,6 +277,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  // 参照資料プロジェクトの更新(資料フォルダ/名称/メモの変更) (US-061)
+  updateReferenceProject: (id: string, input: { name: string; rootPath: string; note?: string }) =>
+    request<ReferenceProject>(`/api/reference-projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
   scanReferenceProject: (id: string) =>
     request<{ scanned: number; totalFiles: number; truncated: boolean }>(
       `/api/reference-projects/${id}/scan`,
