@@ -422,8 +422,16 @@ function OverlayLines({
       const bottomY = (i + 1) * ROW_H;
       let wt = slipWT;
       if (row.startWT != null && row.endWT != null) {
-        // 進捗バーの頂点(達成位置)。バーが基準日より後ろから始まる場合は基準日のまま。
-        wt = row.startWT + (row.progress / 100) * (row.endWT - row.startWT);
+        // 進捗バーの頂点(達成位置)。
+        const apex = row.startWT + (row.progress / 100) * (row.endWT - row.startWT);
+        // 未開始(開始が基準日より後)かつ進捗0%は基準線に留め、右へ伸ばさない。
+        // 進捗がある(>0)場合に限り、未開始でも右への突出を許容する (US-062)。
+        const notStarted = row.startWT > slipWT;
+        if (notStarted && row.progress <= 0) {
+          wt = slipWT;
+        } else {
+          wt = apex;
+        }
       }
       pts.push(`${xOf(wt)},${midY}`); // 進捗頂点へ
       pts.push(`${sx},${bottomY}`); // 次の行境界で基準日へ戻る
